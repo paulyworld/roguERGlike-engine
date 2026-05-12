@@ -1,0 +1,20 @@
+; Engine project — used standalone for testing the framework.
+; Game projects consume this as a submodule under addons/.
+
+config_version=5
+
+[application]
+
+config/name="roguERGlike-engine"
+config/description="Generic deckbuilder framework for Godot 4"
+run/main_scene="res://tests/test_main.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+
+[autoload]
+
+EffortBridge="*res://src/effort/effort_bridge.gd"
+CardRegistry="*res://src/cards/card_registry.gd"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
