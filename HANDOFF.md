@@ -77,17 +77,25 @@ The test scene now includes a live chart with:
 - Time on the x-axis. Distance is noted as pending until distance events are exposed through the sidecar/engine bridge.
 - Power, cadence, and heart rate plotted together with separate normalized scales.
 - Background phase bands for recovery/card play vs power interval.
-- Power target lines for recovery ceiling and interval target.
+- Dotted phase-specific target lines for power, heart rate, and cadence.
 - HR zone boundary lines based on the editable zone inputs.
 
 The left settings panel includes:
 
 - Weight in kg. This drives W/kg calculations.
+- FTP in watts. Recovery and interval power targets are derived from this.
 - Age input plus an "Apply 220-age zones" button.
 - Max HR.
 - Manual lower bounds for HR Zones 1-5.
 
 The common default uses `220 - age` for max HR and zone lower bounds at 50/60/70/80/90% of max HR. The zone spin boxes can then be edited manually for more realistic athlete-specific zones.
+
+Current phase targets:
+
+- Recovery/card play: power target is 55% FTP, HR target is below the Zone 3 lower bound, cadence target is 80 rpm.
+- Power interval: power target is 120% FTP, HR target is the Zone 4 lower bound, cadence target is 100 rpm.
+
+The chart target lines change by phase segment instead of drawing one global target line across the whole session.
 
 ## How To Run
 
@@ -115,9 +123,10 @@ git switch feat/mvp-playable-loop
 
 For a 75 kg test rider:
 
-- 3.3 W/kg target is about 248 W.
-- 3.8 W/kg is about 285 W and grants 4 energy.
-- 4.3 W/kg is about 323 W and grants 5 energy.
+- Default FTP is 250 W.
+- The default interval target is 120% FTP = 300 W = 4.0 W/kg.
+- 0.5 W/kg above interval target grants 4 energy.
+- 1.0 W/kg above interval target grants 5 energy.
 
 ## Validation Done
 
@@ -145,11 +154,12 @@ Do not fold this branch into broader engine architecture until the loop has been
 
 - Is 60 seconds the right first recovery/card-play turn length?
 - Is 30 seconds the right first interval length for the power target?
-- Should the target be based on W/kg, FTP percentage, or both?
+- Should power targets be based on FTP percentage, W/kg, or both? Current test uses FTP for target power and W/kg for cross-rider display/reward margin.
 - Should recovery compliance eventually be based on HR drop instead of a fixed timer?
 - Should recovery compliance matter mechanically, or only display feedback for now?
 - Should target hit trigger energy, block, card synergies, or some combination?
 - Should distance be added to the chart once `distance` events flow through `EffortBridge`?
+- Should target cadence become a scoring input, or remain guidance only?
 - Should this remain in `engine/tests/`, or should the next iteration move into the private `game` repo as a vertical slice?
 
 ## Suggested Next Step

@@ -9,8 +9,11 @@ enum Phase { PLAYER_TURN, ENEMY_INTERVAL }
 
 const DEFAULT_AGE := 40
 const DEFAULT_WEIGHT_KG := 75.0
-const TARGET_WKG := 3.3
-const RECOVERY_CEILING_WKG := 2.0
+const DEFAULT_FTP_W := 250
+const RECOVERY_POWER_PCT_FTP := 0.55
+const INTERVAL_POWER_PCT_FTP := 1.20
+const RECOVERY_CADENCE_RPM := 80
+const INTERVAL_CADENCE_RPM := 100
 const PLAYER_TURN_DURATION_S := 60.0
 const INTERVAL_DURATION_S := 30.0
 const PLAYER_MAX_HP := 20
@@ -28,6 +31,7 @@ var _current_power := 0
 var _current_cadence := 0
 var _current_hr := 0
 var _rider_weight_kg := DEFAULT_WEIGHT_KG
+var _ftp_w := DEFAULT_FTP_W
 var _max_hr := 220 - DEFAULT_AGE
 var _peak_interval_wkg := 0.0
 var _player_time_left := PLAYER_TURN_DURATION_S
@@ -49,6 +53,7 @@ var _combat_over := false
 @onready var log_label: Label = %LogLabel
 @onready var chart: Control = %TelemetryChart
 @onready var weight_spin: SpinBox = %WeightSpin
+@onready var ftp_spin: SpinBox = %FTPSpin
 @onready var age_spin: SpinBox = %AgeSpin
 @onready var max_hr_spin: SpinBox = %MaxHRSpin
 @onready var z1_spin: SpinBox = %Z1Spin
@@ -114,7 +119,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _connect_settings_inputs() -> void:
-	for spin in [weight_spin, max_hr_spin, z1_spin, z2_spin, z3_spin, z4_spin, z5_spin]:
+	for spin in [weight_spin, ftp_spin, max_hr_spin, z1_spin, z2_spin, z3_spin, z4_spin, z5_spin]:
 		spin.value_changed.connect(_on_settings_changed)
 
 
@@ -131,6 +136,7 @@ func _apply_common_hr_formula() -> void:
 
 func _on_settings_changed(_value: float) -> void:
 	_rider_weight_kg = max(1.0, float(weight_spin.value))
+	_ftp_w = max(1, int(ftp_spin.value))
 	_max_hr = max(80, int(max_hr_spin.value))
 	_configure_chart()
 	_render()
@@ -160,14 +166,14 @@ func _start_enemy_interval() -> void:
 	_peak_interval_wkg = _current_wkg()
 	_interval_time_left = INTERVAL_DURATION_S
 	log_label.text = "Power interval started."
-	print("[hiit_mvp] interval_start target_wkg=", TARGET_WKG)
+	print("[hiit_mvp] interval_start target_wkg=", _interval_target_wkg())
 	_add_chart_sample()
 	_render()
 
 
 func _resolve_enemy_interval() -> void:
 	var energy_gain := _interval_energy_gain(_peak_interval_wkg)
-	if _peak_interval_wkg >= TARGET_WKG:
+	if _peak_interval_wkg >= _interval_target_wkg():
 		_energy += energy_gain
 		log_label.text = "Target hit: +%d energy, enemy attack blocked." % energy_gain
 		print("[hiit_mvp] interval_success peak_wkg=", _peak_interval_wkg, " energy=", _energy)
@@ -212,7 +218,31 @@ func _current_wkg() -> float:
 
 
 func _target_margin_wkg(wkg: float) -> float:
-	return wkg - TARGET_WKG
+	return wkg - _interval_target_wkg()
+
+
+func _recovery_target_power_w() -> float:
+	return float(_ftp_w) * RECOVERY_POWER_PCT_FTP
+
+
+func _interval_target_power_w() -> float:
+	return float(_ftp_w) * INTERVAL_POWER_PCT_FTP
+
+
+func _recovery_target_wkg() -> float:
+	return _recovery_target_power_w() / _rider_weight_kg
+
+
+func _interval_target_wkg() -> float:
+	return _interval_target_power_w() / _rider_weight_kg
+
+
+func _recovery_target_hr() -> int:
+	return int(z3_spin.value)
+
+
+func _interval_target_hr() -> int:
+	return int(z4_spin.value)
 
 
 func _interval_energy_gain(peak_wkg: float) -> int:
@@ -245,9 +275,8 @@ func _phase_name() -> String:
 
 
 func _recovery_state() -> String:
-	var z3_floor := int(z3_spin.value)
-	var wkg_ok := _current_wkg() <= RECOVERY_CEILING_WKG
-	var hr_ok := _current_hr == 0 or _current_hr < z3_floor
+	var wkg_ok := _current_power <= _recovery_target_power_w()
+	var hr_ok := _current_hr == 0 or _current_hr < _recovery_target_hr()
 	if wkg_ok and hr_ok:
 		return "in recovery"
 	return "above recovery"
@@ -268,9 +297,13 @@ func _configure_chart() -> void:
 		"configure",
 		_rider_weight_kg,
 		_max_hr,
-		TARGET_WKG,
-		RECOVERY_CEILING_WKG,
-		_zone_bounds()
+		_zone_bounds(),
+		_recovery_target_power_w(),
+		_interval_target_power_w(),
+		float(_recovery_target_hr()),
+		float(_interval_target_hr()),
+		float(RECOVERY_CADENCE_RPM),
+		float(INTERVAL_CADENCE_RPM)
 	)
 
 
@@ -291,20 +324,32 @@ func _render() -> void:
 	player_label.text = "Player HP: %d / %d" % [_player_hp, PLAYER_MAX_HP]
 	energy_label.text = "Energy: %d   Strike cost: %d" % [_energy, STRIKE_COST]
 	if _phase == Phase.PLAYER_TURN:
-		target_label.text = "Recovery: %.1f W/kg ceiling; HR below Z3 floor %d bpm (%s)" % [
-			RECOVERY_CEILING_WKG,
-			int(z3_spin.value),
+		target_label.text = "Recovery targets: %.0f W (%.2f W/kg), HR <%d, cadence %d rpm (%s)" % [
+			_recovery_target_power_w(),
+			_recovery_target_wkg(),
+			_recovery_target_hr(),
+			RECOVERY_CADENCE_RPM,
 			_recovery_state(),
 		]
-		reward_label.text = "Interval rewards: miss +1, target +3, +0.5 W/kg +4, +1.0 W/kg +5"
+		reward_label.text = "Interval targets: %.0f W (%.2f W/kg), HR %d+, cadence %d rpm" % [
+			_interval_target_power_w(),
+			_interval_target_wkg(),
+			_interval_target_hr(),
+			INTERVAL_CADENCE_RPM,
+		]
 	else:
 		var margin := _target_margin_wkg(_peak_interval_wkg)
-		target_label.text = "Target: %.1f W/kg   Peak: %.2f W/kg   Margin: %+.2f" % [
-			TARGET_WKG,
+		target_label.text = "Interval targets: %.0f W (%.2f W/kg), HR %d+, cadence %d rpm" % [
+			_interval_target_power_w(),
+			_interval_target_wkg(),
+			_interval_target_hr(),
+			INTERVAL_CADENCE_RPM,
+		]
+		reward_label.text = "Peak: %.2f W/kg   Margin: %+.2f   %s" % [
 			_peak_interval_wkg,
 			margin,
+			_interval_reward_text(_peak_interval_wkg),
 		]
-		reward_label.text = _interval_reward_text(_peak_interval_wkg)
 	_render_timer_only()
 	strike_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN or _energy < STRIKE_COST
 	end_turn_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN
