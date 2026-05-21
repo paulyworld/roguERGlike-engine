@@ -1,0 +1,70 @@
+extends Control
+## test_main — visualizes the live sidecar event stream.
+##
+## Subscribes to every signal on the EffortBridge autoload, updates on-screen
+## labels, and mirrors each event to stdout so headless runs can be diffed.
+## Proves the WebSocket contract works end-to-end against the sidecar's mock
+## mode without any game logic in the way.
+
+@onready var status_label: Label = %StatusLabel
+@onready var power_label: Label = %PowerLabel
+@onready var cadence_label: Label = %CadenceLabel
+@onready var heart_rate_label: Label = %HeartRateLabel
+@onready var device_label: Label = %DeviceLabel
+@onready var derived_label: Label = %DerivedLabel
+
+
+func _ready() -> void:
+	EffortBridge.connection_state_changed.connect(_on_connection_changed)
+	EffortBridge.device_connected.connect(_on_device_connected)
+	EffortBridge.power_changed.connect(_on_power_changed)
+	EffortBridge.cadence_changed.connect(_on_cadence_changed)
+	EffortBridge.heart_rate_changed.connect(_on_heart_rate_changed)
+	EffortBridge.effort_surge_started.connect(_on_surge_started)
+	EffortBridge.effort_surge_ended.connect(_on_surge_ended)
+	EffortBridge.hr_zone_changed.connect(_on_hr_zone_changed)
+	EffortBridge.effort_pulse.connect(_on_effort_pulse)
+	print("[test_main] ready; waiting for sidecar on ", "ws://localhost:8421")
+
+
+func _on_connection_changed(connected: bool) -> void:
+	status_label.text = "Sidecar: " + ("CONNECTED" if connected else "disconnected")
+	print("[test_main] connection_state_changed connected=", connected)
+
+
+func _on_device_connected(kind: String, name: String) -> void:
+	device_label.text = "Device: %s (%s)" % [name, kind]
+	print("[test_main] device_connected kind=", kind, " name=", name)
+
+
+func _on_power_changed(watts: int) -> void:
+	power_label.text = "Power: %d W" % watts
+	print("[test_main] power_changed watts=", watts)
+
+
+func _on_cadence_changed(rpm: int) -> void:
+	cadence_label.text = "Cadence: %d rpm" % rpm
+	print("[test_main] cadence_changed rpm=", rpm)
+
+
+func _on_heart_rate_changed(bpm: int) -> void:
+	heart_rate_label.text = "HR: %d bpm" % bpm
+	print("[test_main] heart_rate_changed bpm=", bpm)
+
+
+func _on_surge_started(peak_watts: int, baseline_watts: int) -> void:
+	derived_label.text = "SURGE peak=%d base=%d" % [peak_watts, baseline_watts]
+	print("[test_main] effort_surge_started peak=", peak_watts, " base=", baseline_watts)
+
+
+func _on_surge_ended() -> void:
+	derived_label.text = "(no surge)"
+	print("[test_main] effort_surge_ended")
+
+
+func _on_hr_zone_changed(from_zone: int, to_zone: int) -> void:
+	print("[test_main] hr_zone_changed from=", from_zone, " to=", to_zone)
+
+
+func _on_effort_pulse(np_5s: int, watts_per_kg: float) -> void:
+	print("[test_main] effort_pulse np_5s=", np_5s, " w/kg=", watts_per_kg)
