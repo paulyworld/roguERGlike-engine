@@ -43,6 +43,10 @@ var _combat_over := false
 @onready var status_label: Label = %StatusLabel
 @onready var device_label: Label = %DeviceLabel
 @onready var telemetry_label: Label = %TelemetryLabel
+@onready var power_big_label: Label = %PowerBigLabel
+@onready var wkg_big_label: Label = %WkgBigLabel
+@onready var hr_big_label: Label = %HRBigLabel
+@onready var cadence_big_label: Label = %CadenceBigLabel
 @onready var phase_label: Label = %PhaseLabel
 @onready var enemy_label: Label = %EnemyLabel
 @onready var player_label: Label = %PlayerLabel
@@ -51,7 +55,12 @@ var _combat_over := false
 @onready var reward_label: Label = %RewardLabel
 @onready var timer_label: Label = %TimerLabel
 @onready var log_label: Label = %LogLabel
-@onready var chart: Control = %TelemetryChart
+@onready var charts: Array[Control] = [
+	%RideChart,
+	%PowerChart,
+	%HRChart,
+	%CadenceChart,
+]
 @onready var weight_spin: SpinBox = %WeightSpin
 @onready var ftp_spin: SpinBox = %FTPSpin
 @onready var age_spin: SpinBox = %AgeSpin
@@ -207,7 +216,8 @@ func _reset_combat() -> void:
 	_session_time_s = 0.0
 	_chart_sample_time_s = 0.0
 	_combat_over = false
-	chart.call("clear")
+	for chart in charts:
+		chart.call("clear")
 	log_label.text = "New HIIT encounter."
 	_add_chart_sample()
 	_render()
@@ -293,22 +303,24 @@ func _zone_bounds() -> Array[int]:
 
 
 func _configure_chart() -> void:
-	chart.call(
-		"configure",
-		_rider_weight_kg,
-		_max_hr,
-		_zone_bounds(),
-		_recovery_target_power_w(),
-		_interval_target_power_w(),
-		float(_recovery_target_hr()),
-		float(_interval_target_hr()),
-		float(RECOVERY_CADENCE_RPM),
-		float(INTERVAL_CADENCE_RPM)
-	)
+	for chart in charts:
+		chart.call(
+			"configure",
+			_rider_weight_kg,
+			_max_hr,
+			_zone_bounds(),
+			_recovery_target_power_w(),
+			_interval_target_power_w(),
+			float(_recovery_target_hr()),
+			float(_interval_target_hr()),
+			float(RECOVERY_CADENCE_RPM),
+			float(INTERVAL_CADENCE_RPM)
+		)
 
 
 func _add_chart_sample() -> void:
-	chart.call("add_sample", _session_time_s, _current_power, _current_cadence, _current_hr, int(_phase))
+	for chart in charts:
+		chart.call("add_sample", _session_time_s, _current_power, _current_cadence, _current_hr, int(_phase))
 
 
 func _render() -> void:
@@ -319,6 +331,10 @@ func _render() -> void:
 		_current_cadence,
 		_current_hr,
 	]
+	power_big_label.text = "%d W" % _current_power
+	wkg_big_label.text = "%.2f W/kg" % wkg
+	hr_big_label.text = "%d bpm" % _current_hr
+	cadence_big_label.text = "%d rpm" % _current_cadence
 	phase_label.text = "Phase: %s" % _phase_name()
 	enemy_label.text = "Enemy HP: %d / %d" % [_enemy_hp, ENEMY_MAX_HP]
 	player_label.text = "Player HP: %d / %d" % [_player_hp, PLAYER_MAX_HP]

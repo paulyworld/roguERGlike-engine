@@ -176,12 +176,76 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Power: 0 W   W/kg: 0.00   Cadence: 0 rpm   HR: 0 bpm"
 
-[node name="TelemetryChart" type="Control" parent="Root/MainPanel/MainVBox"]
+[node name="MetricsRow" type="HBoxContainer" parent="Root/MainPanel/MainVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PowerBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(720, 260)
+custom_minimum_size = Vector2(150, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 28
+text = "0 W"
+horizontal_alignment = 1
+
+[node name="WkgBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 28
+text = "0.00 W/kg"
+horizontal_alignment = 1
+
+[node name="HRBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 28
+text = "0 bpm"
+horizontal_alignment = 1
+
+[node name="CadenceBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 28
+text = "0 rpm"
+horizontal_alignment = 1
+
+[node name="RideChart" type="Control" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(720, 150)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("2_chart")
+
+[node name="PowerChart" type="Control" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(720, 120)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_chart")
+mode = 1
+
+[node name="HRChart" type="Control" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(720, 120)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_chart")
+mode = 2
+
+[node name="CadenceChart" type="Control" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(720, 120)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_chart")
+mode = 3
 
 [node name="Separator1" type="HSeparator" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2

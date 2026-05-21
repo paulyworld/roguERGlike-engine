@@ -74,11 +74,13 @@ This deliberately avoids the earlier simultaneous health-race loop. Cards happen
 
 The test scene now includes a live chart with:
 
-- Time on the x-axis. Distance is noted as pending until distance events are exposed through the sidecar/engine bridge.
-- Power, cadence, and heart rate plotted together with separate normalized scales.
+- A `Ride View` timeline for the full 20 minute test workout.
+- Separate detail charts for power, heart rate, and cadence to reduce visual crowding.
+- Time on the x-axis. Distance is still pending until distance events are exposed through the sidecar/engine bridge.
 - Background phase bands for recovery/card play vs power interval.
-- Dotted phase-specific target lines for power, heart rate, and cadence.
-- HR zone boundary lines based on the editable zone inputs.
+- Dotted phase-specific target lines in each detail chart.
+- HR zone boundary lines in the heart-rate detail chart.
+- Large live readouts for watts, W/kg, HR, and cadence above the charts.
 
 The left settings panel includes:
 
@@ -95,7 +97,7 @@ Current phase targets:
 - Recovery/card play: power target is 55% FTP, HR target is below the Zone 3 lower bound, cadence target is 80 rpm.
 - Power interval: power target is 120% FTP, HR target is the Zone 4 lower bound, cadence target is 100 rpm.
 
-The chart target lines change by phase segment instead of drawing one global target line across the whole session.
+The chart target lines change by phase segment instead of drawing one global target line across the whole session. The `Ride View` is inspired by workout dashboards such as Zwift/TrainerRoad: big current outputs first, full workout blocks underneath, then detailed metric charts.
 
 ## How To Run
 
