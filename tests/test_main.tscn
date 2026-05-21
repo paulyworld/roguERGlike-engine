@@ -10,52 +10,106 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="VBox" type="VBoxContainer" parent="."]
-unique_name_in_owner = true
+[node name="Panel" type="PanelContainer" parent="."]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -240.0
-offset_top = -120.0
-offset_right = 240.0
-offset_bottom = 120.0
+offset_left = -330.0
+offset_top = -245.0
+offset_right = 330.0
+offset_bottom = 245.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="VBox"]
+[node name="VBox" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
-text = "roguERGlike engine — sidecar handshake test"
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "HIIT MVP Encounter"
 horizontal_alignment = 1
 
-[node name="StatusLabel" type="Label" parent="VBox"]
+[node name="StatusLabel" type="Label" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Sidecar: disconnected"
 
-[node name="DeviceLabel" type="Label" parent="VBox"]
+[node name="DeviceLabel" type="Label" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Device: (none)"
 
-[node name="PowerLabel" type="Label" parent="VBox"]
+[node name="TelemetryLabel" type="Label" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Power: -- W"
+text = "Power: 0 W   W/kg: 0.00   Cadence: 0 rpm   HR: 0 bpm"
 
-[node name="CadenceLabel" type="Label" parent="VBox"]
-unique_name_in_owner = true
+[node name="Separator1" type="HSeparator" parent="Panel/VBox"]
 layout_mode = 2
-text = "Cadence: -- rpm"
 
-[node name="HeartRateLabel" type="Label" parent="VBox"]
+[node name="PhaseLabel" type="Label" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "HR: -- bpm"
+text = "Phase: Recovery / Card Play"
 
-[node name="DerivedLabel" type="Label" parent="VBox"]
+[node name="TargetLabel" type="Label" parent="Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "(no surge)"
+text = "Recovery: 2.0 W/kg ceiling"
+
+[node name="TimerLabel" type="Label" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Enemy interval: 10s at 3.3 W/kg target"
+
+[node name="Separator2" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="EnemyLabel" type="Label" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Enemy HP: 30 / 30"
+
+[node name="PlayerLabel" type="Label" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Player HP: 20 / 20"
+
+[node name="EnergyLabel" type="Label" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Energy: 1   Strike cost: 1"
+
+[node name="ButtonRow" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StrikeButton" type="Button" parent="Panel/VBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Strike"
+
+[node name="EndTurnButton" type="Button" parent="Panel/VBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "End Turn"
+
+[node name="ResetButton" type="Button" parent="Panel/VBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Reset"
+
+[node name="Separator3" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="LogLabel" type="Label" parent="Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Ready."
+autowrap_mode = 3
