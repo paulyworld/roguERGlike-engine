@@ -3,7 +3,7 @@
 > Current state of this repo. Updated at the end of every session that touches it. Read first.
 
 **Last updated:** 2026-05-21
-**Current branch:** `docs/update-handoff-mvp-loop-state`
+**Current branch:** `docs/post-hrs-mvp-promotion-engine`
 **Base branch:** `develop`
 **Current focus:** Engine handshake scene is merged/live-validated. The Codex MVP HIIT playable-loop experiment is pushed on `feat/mvp-playable-loop` and should be tested separately before any architectural promotion.
 
