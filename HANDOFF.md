@@ -1,42 +1,124 @@
-# HANDOFF — roguERGlike-engine
+# HANDOFF - roguERGlike-engine
 
 > Current state of this repo. Updated at the end of every session that touches it. Read first.
 
 **Last updated:** 2026-05-21
-**Last session log:** `../../docs/sessions/2026-05-21-hardware-validation-and-merges.md` (in umbrella)
-**Current branch:** `docs/post-phase-2-merge-engine` (PR pending); `feat/handshake-test-scene` + `docs/handoff-refresh` merged; `feat/mvp-playable-loop` in flight as draft PR #4
-**Current focus:** Handshake test scene merged and **live-validated against a real KICKR CORE 1003**. MVP HIIT playable loop is in flight on a separate branch (draft PR #4).
+**Current branch:** `docs/update-handoff-mvp-loop-state`
+**Base branch:** `develop`
+**Current focus:** Engine handshake scene is merged/live-validated. The Codex MVP HIIT playable-loop experiment is pushed on `feat/mvp-playable-loop` and should be tested separately before any architectural promotion.
 
-## Where we are
+## Where We Are
 
-The `tests/test_main.tscn` handshake scene works end-to-end against the sidecar's `--mode live`. Real `power_changed` / `cadence_changed` signals fire on the `EffortBridge` autoload as the rider pedals; the labels update in real time. Project boots cleanly headless and in the editor; `CardRegistry` autoload is a no-op stub (was the missing-file failure that blocked boot during the handshake PR).
+The engine `develop` branch contains the sidecar handshake test scene. It has been live-validated against a real KICKR CORE: `EffortBridge` receives `power_changed` and `cadence_changed` from the sidecar live mode and updates the scene in real time.
 
-A separate branch `feat/mvp-playable-loop` is in flight (draft PR #4) — a prototype HIIT card-game loop driven by the live telemetry. Also has uncommitted local edits stashed (`git stash list` shows "mvp-playable-loop WIP — saved before connection-test branch switch 2026-05-21") from when we briefly switched branches for the clean connection test.
+A separate Codex side branch exists:
 
-## What's next (immediate)
+```text
+feat/mvp-playable-loop
+```
 
-1. **Resume the MVP HIIT playable loop.** `git checkout feat/mvp-playable-loop && git stash pop` to restore the WIP edits. Continue building the card-game prototype; you can now drive it from a real KICKR (or `--mode mock` for off-bike iteration). When ready for review, replace the draft PR #4 body with summary + test plan and mark Ready for review.
-2. **Card-system foundation** (a prerequisite either way). `card.gd` still references undefined `Effect` and `CombatContext`. Minimal defines (`Effect: Resource` with `apply(context)`, `CombatContext: RefCounted` with hand/draw/discard piles) on a `feat/card-system-foundation` branch unblock real card work.
-3. **Tighten CI**: the `godot-headless-tests` job in `.github/workflows/ci.yml` runs with `|| true` — booting Godot is verified but no assertion fails. Replace with a real headless test runner (GUT, or a hand-rolled scene that exits non-zero on failure).
+That branch is intentionally experimental. It is not the canonical engine architecture yet. It prototypes a HIIT-style loop where card choices happen during recovery/card-play phases and higher-intensity output happens during power-interval phases.
 
-## Open threads
+The broader rationale is documented in the umbrella repo:
 
-- **Stashed WIP** on `feat/mvp-playable-loop`: `git stash list` to find, `git stash pop` to restore. Don't lose it.
-- **`card.gd` parse errors** — references undefined `Effect` and `CombatContext`. Reordered for `gdlint` in PR #1 but the underlying types still don't exist; not fatal because no autoload depends on `Card`.
-- **CardRegistry is a no-op stub** — flesh out alongside card-system work.
-- **Derived signals on `EffortBridge`** (`effort_surge_*`, `hr_zone_changed`, `effort_pulse`) are wired and the test scene logs them, but the sidecar has no producer for them yet — they'll start firing once Phase 2 BLE has been running long enough to derive (or once a dedicated deriver lands sidecar-side).
-- **Multi-platform export config** (Windows / Mac / Linux / web / iOS / Android) not yet set up.
-- **No GUT or test-runner integration yet** — `tests/` currently holds the handshake scene only.
-- **First CI runs** — `statusCheckRollup` was empty on merged PRs; matches the `github-actions-first-push-quirk` memory. Next PR push should be the first real CI run.
+```text
+../../docs/mvp-playable-loop-second-opinion.md
+```
 
-## Notes for next session
+## MVP Branch State
 
-- The effort bridge (`src/effort/effort_bridge.gd`) is the contract surface with the sidecar — coordinate changes with the sidecar repo and update `event-schema.md` first.
-- Run the sidecar before launching the engine; otherwise `test_main` shows "disconnected". For real telemetry: `roguerglike-sidecar --mode live --device-bike "<name>"`. For development without the bike: `--mode mock`.
-- Godot 4 keys: **F5** = run project's main scene; **F6** = run currently-open scene; the ▶ Play button always works. If F5 silently no-ops, try F6 or the button.
-- KICKR LED: solid blue = one BLE host connected (us); blinking = advertising. Use this as a fast diagnostic when "no data" appears in the engine.
-- Headless: `godot --headless --quit-after 240` (frames, ≈4s at 60fps) is enough to capture several mock ticks; use `--quit-after 1200` (~20s) for a real-bike check while you pedal.
+Latest pushed MVP commits include:
 
-## Entry point for next session
+```text
+04b6b01 feat: split workout telemetry charts
+756c0c9 feat: add FTP-based phase targets
+418704c feat: add HIIT session charting controls
+8b692e1 feat: prototype HIIT MVP playable loop
+```
 
-> "Restore stashed WIP on `feat/mvp-playable-loop` (`git stash list` → `git stash pop`) and continue the HIIT playable loop with real bike data wired in. If the `card.gd` parse errors are in the way, branch `feat/card-system-foundation` first and define minimal `Effect` (Resource with `apply(context)`) and `CombatContext` (RefCounted with hand/draw/discard piles) base classes — small, blocks the larger card work."
+The MVP branch currently includes:
+
+- A 20-minute workout `Ride View` timeline.
+- Separate charts for power, heart rate, and cadence.
+- Large live readouts for watts, W/kg, HR, and cadence.
+- Editable rider settings: weight, FTP, age, max HR, and manual HR zone lower bounds.
+- FTP-based phase power targets:
+  - Recovery/card play: 55% FTP.
+  - Power interval: 120% FTP.
+- Phase-specific dotted target lines for target power, target HR, and target cadence.
+- Recovery/card timer and power-interval timer.
+- Energy rewards based on interval target performance.
+
+There is no longer a required local stash restore step for the MVP branch. The prior handoff note about stashed WIP is stale.
+
+## How To Run The MVP Without A Bike
+
+Start sidecar mock mode:
+
+```powershell
+cd C:\dev\roguERGlike\repos\sidecar
+$env:PYTHONPATH="src"
+python -m roguerglike_sidecar.cli --mode mock
+```
+
+Open mock controls:
+
+```text
+http://localhost:8422
+```
+
+Run the MVP engine scene:
+
+```powershell
+cd C:\dev\roguERGlike\repos\engine
+git switch feat/mvp-playable-loop
+git pull
+..\..\..\tools\Godot\godot.exe --path .
+```
+
+## How To Run The MVP With The Bike
+
+Start sidecar live mode with the trainer name/address that was validated locally:
+
+```powershell
+cd C:\dev\roguERGlike\repos\sidecar
+$env:PYTHONPATH="src"
+python -m roguerglike_sidecar.cli --mode live --device-bike KICKR
+```
+
+Then launch the MVP branch as above. The engine connects to `ws://localhost:8421`, so it consumes either mock or live sidecar telemetry without code changes.
+
+Trainer control writes are not implemented yet. The current live-bike path is passive telemetry only: power/cadence/speed/possibly HR from the trainer. Target power/resistance control will require FTMS control-point support in the sidecar.
+
+## What's Next
+
+1. **Playtest `feat/mvp-playable-loop`.** Use mock mode first, then the KICKR if desired. Evaluate whether the split between recovery/card play and interval/recharge feels better than simultaneous combat/effort.
+2. **Decide what target metrics actually score.** Power currently drives energy rewards; HR and cadence are displayed as targets/guidance. Decide whether cadence and HR should affect rewards or synergies.
+3. **Add sidecar trainer control only after the loop feels promising.** Needed for ERG/target power or resistance writes during power intervals. This should be guarded by an explicit live-control option.
+4. **Card-system foundation.** `card.gd` still references undefined `Effect` and `CombatContext`; define minimal base classes before promoting MVP combat concepts out of the test scene.
+5. **Tighten CI.** Current Godot headless boot checks are useful but not true assertions. Add a real test runner or assertion scene later.
+
+## Open Threads
+
+- `feat/mvp-playable-loop` is still a side experiment; keep it local to test-scene scope until playtested.
+- `tests/telemetry_chart.gd` is a test harness chart, not a reusable UI primitive yet.
+- Distance is not charted because `distance` events are not currently exposed through `EffortBridge`.
+- HR zones use `220 - age` defaults plus manual lower-bound overrides; this is sufficient for testing, not final athlete onboarding.
+- FTMS control-point writes for ERG/target power are not implemented.
+- Multi-platform export config is not set up.
+
+## Notes For Next Session
+
+- Read this handoff plus `../../docs/mvp-playable-loop-second-opinion.md` before continuing MVP work.
+- Use `--mode mock` for quick UI/play-loop iteration.
+- Use `--mode live --device-bike KICKR` only when actively testing with the trainer.
+- If port `8421` is busy, inspect it with:
+
+```powershell
+Get-NetTCPConnection -LocalPort 8421 | Select-Object LocalAddress,LocalPort,State,OwningProcess
+Get-CimInstance Win32_Process -Filter "ProcessId = <PID>" | Format-List ProcessId,Name,CommandLine
+```
+
+## Entry Point For Next Session
+
+> Continue from `feat/mvp-playable-loop`. Test the split Ride View / Power / HR / Cadence charts with mock sidecar first. Then, if the bike is available, run sidecar live mode and verify that real power/cadence update the MVP loop. Do not implement FTMS resistance/ERG writes until the basic loop feels worth continuing.
