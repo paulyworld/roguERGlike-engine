@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://b8x0cg5h2k1m3"]
+[gd_scene load_steps=3 format=3 uid="uid://b8x0cg5h2k1m3"]
 
 [ext_resource type="Script" path="res://tests/test_main.gd" id="1_main"]
+[ext_resource type="Script" path="res://tests/telemetry_chart.gd" id="2_chart"]
 
 [node name="TestMain" type="Control"]
 anchors_preset = 15
@@ -10,105 +11,235 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="Panel" type="PanelContainer" parent="."]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -330.0
-offset_top = -245.0
-offset_right = 330.0
-offset_bottom = 245.0
+[node name="Root" type="HBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 12
 
-[node name="VBox" type="VBoxContainer" parent="Panel"]
+[node name="SettingsPanel" type="PanelContainer" parent="Root"]
+custom_minimum_size = Vector2(260, 0)
 layout_mode = 2
-theme_override_constants/separation = 10
 
-[node name="Title" type="Label" parent="Panel/VBox"]
+[node name="SettingsVBox" type="VBoxContainer" parent="Root/SettingsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SettingsTitle" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Rider Settings"
+horizontal_alignment = 1
+
+[node name="WeightLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Weight (kg)"
+
+[node name="WeightSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 35.0
+max_value = 180.0
+step = 0.5
+value = 75.0
+
+[node name="AgeLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Age for 220-age default"
+
+[node name="AgeSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 10.0
+max_value = 100.0
+value = 40.0
+
+[node name="MaxHRLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Max HR"
+
+[node name="MaxHRSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 100.0
+max_value = 230.0
+value = 180.0
+
+[node name="FormulaButton" type="Button" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Apply 220-age zones"
+
+[node name="ZoneSeparator" type="HSeparator" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+
+[node name="ZoneTitle" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Manual HR zone lower bounds"
+
+[node name="Z1Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z1 lower"
+
+[node name="Z1Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 90.0
+
+[node name="Z2Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z2 lower"
+
+[node name="Z2Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 108.0
+
+[node name="Z3Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z3 lower"
+
+[node name="Z3Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 126.0
+
+[node name="Z4Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z4 lower"
+
+[node name="Z4Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 144.0
+
+[node name="Z5Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z5 lower"
+
+[node name="Z5Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 162.0
+
+[node name="MainPanel" type="PanelContainer" parent="Root"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MainVBox" type="VBoxContainer" parent="Root/MainPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2
 text = "HIIT MVP Encounter"
 horizontal_alignment = 1
 
-[node name="StatusLabel" type="Label" parent="Panel/VBox"]
+[node name="StatusLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Sidecar: disconnected"
 
-[node name="DeviceLabel" type="Label" parent="Panel/VBox"]
+[node name="DeviceLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Device: (none)"
 
-[node name="TelemetryLabel" type="Label" parent="Panel/VBox"]
+[node name="TelemetryLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Power: 0 W   W/kg: 0.00   Cadence: 0 rpm   HR: 0 bpm"
 
-[node name="Separator1" type="HSeparator" parent="Panel/VBox"]
+[node name="TelemetryChart" type="Control" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(720, 260)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_chart")
+
+[node name="Separator1" type="HSeparator" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2
 
-[node name="PhaseLabel" type="Label" parent="Panel/VBox"]
+[node name="PhaseLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Phase: Recovery / Card Play"
 
-[node name="TargetLabel" type="Label" parent="Panel/VBox"]
+[node name="TargetLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Recovery: 2.0 W/kg ceiling"
 
-[node name="TimerLabel" type="Label" parent="Panel/VBox"]
+[node name="TimerLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Enemy interval: 10s at 3.3 W/kg target"
+text = "Recovery/card timer: 60.0s"
 
-[node name="Separator2" type="HSeparator" parent="Panel/VBox"]
+[node name="RewardLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Interval rewards: miss +1, target +3, +0.5 W/kg +4, +1.0 W/kg +5"
+autowrap_mode = 3
+
+[node name="Separator2" type="HSeparator" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2
 
-[node name="EnemyLabel" type="Label" parent="Panel/VBox"]
+[node name="EnemyLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Enemy HP: 30 / 30"
 
-[node name="PlayerLabel" type="Label" parent="Panel/VBox"]
+[node name="PlayerLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Player HP: 20 / 20"
 
-[node name="EnergyLabel" type="Label" parent="Panel/VBox"]
+[node name="EnergyLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Energy: 1   Strike cost: 1"
 
-[node name="ButtonRow" type="HBoxContainer" parent="Panel/VBox"]
+[node name="ButtonRow" type="HBoxContainer" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="StrikeButton" type="Button" parent="Panel/VBox/ButtonRow"]
+[node name="StrikeButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Strike"
 
-[node name="EndTurnButton" type="Button" parent="Panel/VBox/ButtonRow"]
+[node name="EndTurnButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "End Turn"
 
-[node name="ResetButton" type="Button" parent="Panel/VBox/ButtonRow"]
+[node name="ResetButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Reset"
 
-[node name="Separator3" type="HSeparator" parent="Panel/VBox"]
+[node name="Separator3" type="HSeparator" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2
 
-[node name="LogLabel" type="Label" parent="Panel/VBox"]
+[node name="LogLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Ready."

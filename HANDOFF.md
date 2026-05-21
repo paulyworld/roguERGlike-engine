@@ -38,6 +38,7 @@ Files changed on this branch:
 
 - `tests/test_main.gd`
 - `tests/test_main.tscn`
+- `tests/telemetry_chart.gd`
 
 The scene still uses the existing `EffortBridge` autoload and sidecar WebSocket stream.
 
@@ -50,20 +51,43 @@ The scene still uses the existing `EffortBridge` autoload and sidecar WebSocket 
 - `Strike` deals 6 damage.
 - Player is expected to stay under a recovery ceiling.
 - Current recovery ceiling is 2.0 W/kg.
+- Player turn is currently timed at 60 seconds for testability.
+- Recovery also displays HR guidance: stay below the configured Zone 3 lower bound.
 
 ### Enemy phase: Power Interval
 
 - Player cannot play cards.
-- Player tries to hit a peak W/kg target during a fixed 10 second interval.
+- Player tries to hit a peak W/kg target during a fixed 30 second interval.
 - Current target is 3.3 W/kg.
-- Rider weight is currently hardcoded at 75 kg for test purposes.
+- Rider weight is editable in the scene and defaults to 75 kg.
 
 Resolution:
 
-- Target hit: gain 3 energy and block the enemy attack.
 - Target missed: gain 1 energy and take 5 damage.
+- Target hit: gain 3 energy and block the enemy attack.
+- Target exceeded by 0.5 W/kg: gain 4 energy and block.
+- Target exceeded by 1.0 W/kg: gain 5 energy and block.
 
 This deliberately avoids the earlier simultaneous health-race loop. Cards happen during recovery; high physical output happens during the enemy/power interval.
+
+## Charting And Settings
+
+The test scene now includes a live chart with:
+
+- Time on the x-axis. Distance is noted as pending until distance events are exposed through the sidecar/engine bridge.
+- Power, cadence, and heart rate plotted together with separate normalized scales.
+- Background phase bands for recovery/card play vs power interval.
+- Power target lines for recovery ceiling and interval target.
+- HR zone boundary lines based on the editable zone inputs.
+
+The left settings panel includes:
+
+- Weight in kg. This drives W/kg calculations.
+- Age input plus an "Apply 220-age zones" button.
+- Max HR.
+- Manual lower bounds for HR Zones 1-5.
+
+The common default uses `220 - age` for max HR and zone lower bounds at 50/60/70/80/90% of max HR. The zone spin boxes can then be edited manually for more realistic athlete-specific zones.
 
 ## How To Run
 
@@ -89,7 +113,11 @@ git switch feat/mvp-playable-loop
 ..\..\..\tools\Godot\godot.exe --path .
 ```
 
-For a 75 kg test rider, 3.3 W/kg is about 248 W.
+For a 75 kg test rider:
+
+- 3.3 W/kg target is about 248 W.
+- 3.8 W/kg is about 285 W and grants 4 energy.
+- 4.3 W/kg is about 323 W and grants 5 energy.
 
 ## Validation Done
 
@@ -102,7 +130,7 @@ Godot headless scene load passes:
 Expected console output includes:
 
 ```text
-[hiit_mvp] ready; player turn is recovery, enemy turn is power target
+[hiit_mvp] ready; timed recovery, power interval, charting enabled
 ```
 
 ## Relationship To Claude's Work
@@ -115,11 +143,13 @@ Do not fold this branch into broader engine architecture until the loop has been
 
 ## Open Questions
 
-- Is 10 seconds the right first interval length for the power target?
+- Is 60 seconds the right first recovery/card-play turn length?
+- Is 30 seconds the right first interval length for the power target?
 - Should the target be based on W/kg, FTP percentage, or both?
+- Should recovery compliance eventually be based on HR drop instead of a fixed timer?
 - Should recovery compliance matter mechanically, or only display feedback for now?
 - Should target hit trigger energy, block, card synergies, or some combination?
-- Is hardcoded rider weight acceptable for this test, or should the test scene expose a simple rider-weight control?
+- Should distance be added to the chart once `distance` events flow through `EffortBridge`?
 - Should this remain in `engine/tests/`, or should the next iteration move into the private `game` repo as a vertical slice?
 
 ## Suggested Next Step
@@ -128,8 +158,9 @@ Playtest the current loop manually:
 
 1. During recovery, play `Strike` if energy is available.
 2. End turn.
-3. During the 10 second interval, use the sidecar power slider to exceed the W/kg target.
-4. Observe whether earning energy/block during the interval feels better than simultaneous card play and damage racing.
+3. During the 30 second interval, use the sidecar power slider to exceed the W/kg target.
+4. Watch peak W/kg, target margin, and projected energy reward update live.
+5. Observe whether earning energy/block during the interval feels better than simultaneous card play and damage racing.
 
 After that, make only one design change at a time. The next likely change is exposing rider weight or target W/kg in the scene so balancing can be tested without code edits.
 
