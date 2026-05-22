@@ -87,11 +87,16 @@ This is intentionally generic. Public cycling warmup guidance commonly emphasize
 
 - Player energy is turn-scoped. It expires when the player ends recovery/card play.
 - Each recovery/card turn starts with a fixed 3 energy.
+- The player now has a starter deck and draws a 3-card hand each recovery turn.
+- Starting deck: 4 `Power Strike`, 3 `Cadence Guard`, 3 `Recovery Breath`.
+- `Recovery Breath` is currently a deliberate non-action/dead draw so the MVP can test draw variance before adding more card effects.
+- Unplayed cards discard when the recovery timer ends; the discard pile shuffles back into the draw pile when the deck is empty.
 - Power interval performance no longer changes energy. It now feeds card modifier readiness.
 - Player can play `Power Strike`.
   - Costs 2 energy.
   - Deals base damage.
   - Gains bonus damage if the previous power interval sustained target after the ramp grace.
+  - Damage now hits enemy block first, then HP.
 - Player can play `Cadence Guard`.
   - Costs 1 energy.
   - Adds block that persists into the upcoming enemy power interval.
@@ -109,11 +114,16 @@ This is intentionally generic. Public cycling warmup guidance commonly emphasize
 - Player tries to sustain the target during a fixed 30 second interval.
 - Default 75 kg target is 4.0 W/kg, derived from 120% FTP at the default 250 W FTP.
 - Rider weight is editable in the scene and defaults to 75 kg.
+- Enemy intent rotates through `Block`, `Attack`, and `Strength`.
+- `Block` adds enemy block after the interval; it persists into the next player turn and must be broken before attacks damage enemy HP.
+- `Attack` deals base attack plus accumulated strength, reduced by player block.
+- `Strength` adds +2 damage to subsequent enemy attacks.
+- Player block expires after each enemy interval, even when the enemy blocks or buffs.
 
 Resolution:
 
-- Enemy makes a generic attack during its power interval.
-- Block from `Cadence Guard` reduces that attack.
+- Enemy resolves its current intent at the end of the power interval.
+- Block from `Cadence Guard` reduces attack intents.
 - The next turn always starts with 3 energy.
 - The previous interval's sustained power accuracy controls whether `Power Strike` gets bonus damage.
 - The first 8 seconds of the interval are ignored for power accuracy so trainer ramp time does not punish the player.

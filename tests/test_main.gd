@@ -7,6 +7,8 @@ extends Control
 
 enum Phase { SETUP, WARMUP, POWER_UP, PLAYER_TURN, ENEMY_INTERVAL, RAMP_WORKOUT, COMPLETE }
 enum WorkoutKind { HIIT_ENCOUNTER, RAMP_POWER_TEST, ERG_STEP_TEST }
+enum CardType { POWER_STRIKE, CADENCE_GUARD, RECOVERY_BREATH }
+enum EnemyIntent { BLOCK, ATTACK, BUFF }
 
 const DEFAULT_AGE := 40
 const DEFAULT_WEIGHT_KG := 75.0
@@ -42,6 +44,21 @@ const CADENCE_GUARD_COST := 1
 const CADENCE_GUARD_BLOCK := 5
 const CADENCE_GUARD_BONUS_BLOCK := 4
 const ENEMY_ATTACK_DAMAGE := 8
+const ENEMY_BLOCK_AMOUNT := 8
+const ENEMY_STRENGTH_GAIN := 2
+const HAND_SIZE := 3
+const STARTING_DECK: Array[int] = [
+	CardType.POWER_STRIKE,
+	CardType.POWER_STRIKE,
+	CardType.POWER_STRIKE,
+	CardType.POWER_STRIKE,
+	CardType.CADENCE_GUARD,
+	CardType.CADENCE_GUARD,
+	CardType.CADENCE_GUARD,
+	CardType.RECOVERY_BREATH,
+	CardType.RECOVERY_BREATH,
+	CardType.RECOVERY_BREATH,
+]
 const CHART_SAMPLE_PERIOD_S := 0.5
 const TRAINER_TARGET_UPDATE_PERIOD_S := 5.0
 const INTERVAL_RAMP_GRACE_S := 8.0
@@ -51,6 +68,12 @@ var _player_hp := PLAYER_MAX_HP
 var _enemy_hp := ENEMY_MAX_HP
 var _energy := 0
 var _pending_block := 0
+var _enemy_block := 0
+var _enemy_strength := 0
+var _enemy_intent := EnemyIntent.BLOCK
+var _draw_pile: Array[int] = []
+var _discard_pile: Array[int] = []
+var _hand: Array[int] = []
 var _current_power := 0
 var _current_cadence := 0
 var _current_hr := 0
@@ -255,15 +278,22 @@ func _on_settings_changed(_value: float) -> void:
 func _play_power_strike() -> void:
 	if _combat_over or _phase != Phase.PLAYER_TURN:
 		return
+	if not _consume_card_from_hand(CardType.POWER_STRIKE):
+		log_label.text = "Power Strike is not in hand."
+		_render()
+		return
 	if _energy < POWER_STRIKE_COST:
 		log_label.text = "Not enough energy."
+		_hand.append(CardType.POWER_STRIKE)
+		_render()
 		return
 	_energy -= POWER_STRIKE_COST
 	var damage := POWER_STRIKE_DAMAGE
 	if _last_interval_power_accuracy >= 1.0:
 		damage += POWER_STRIKE_BONUS_DAMAGE
-	_enemy_hp = max(0, _enemy_hp - damage)
-	log_label.text = "Power Strike dealt %d damage." % damage
+	var hp_damage: int = _deal_damage_to_enemy(damage)
+	_discard_pile.append(CardType.POWER_STRIKE)
+	log_label.text = "Power Strike dealt %d (%d to block, %d to HP)." % [damage, damage - hp_damage, hp_damage]
 	print("[hiit_mvp] power_strike enemy_hp=", _enemy_hp, " energy=", _energy)
 	if _enemy_hp == 0:
 		_combat_over = true
@@ -276,14 +306,21 @@ func _play_power_strike() -> void:
 func _play_cadence_guard() -> void:
 	if _combat_over or _phase != Phase.PLAYER_TURN:
 		return
+	if not _consume_card_from_hand(CardType.CADENCE_GUARD):
+		log_label.text = "Cadence Guard is not in hand."
+		_render()
+		return
 	if _energy < CADENCE_GUARD_COST:
 		log_label.text = "Not enough energy."
+		_hand.append(CardType.CADENCE_GUARD)
+		_render()
 		return
 	_energy -= CADENCE_GUARD_COST
 	var block := CADENCE_GUARD_BLOCK
 	if _turn_cadence_accuracy >= 0.9:
 		block += CADENCE_GUARD_BONUS_BLOCK
 	_pending_block += block
+	_discard_pile.append(CardType.CADENCE_GUARD)
 	log_label.text = "Cadence Guard added %d block." % block
 	print("[hiit_mvp] cadence_guard block=", block, " pending_block=", _pending_block, " energy=", _energy)
 	_render()
@@ -295,6 +332,10 @@ func _start_workout() -> void:
 	_enemy_hp = ENEMY_MAX_HP
 	_energy = 0
 	_pending_block = 0
+	_enemy_block = 0
+	_enemy_strength = 0
+	_enemy_intent = EnemyIntent.BLOCK
+	_reset_deck()
 	_peak_interval_wkg = 0.0
 	_last_interval_peak_wkg = 0.0
 	_last_interval_power_accuracy = 0.0
@@ -340,12 +381,13 @@ func _start_enemy_interval() -> void:
 	if _combat_over or _phase != Phase.PLAYER_TURN:
 		return
 	var expired_energy := _energy
+	_discard_hand()
 	_energy = 0
 	_phase = Phase.ENEMY_INTERVAL
 	_peak_interval_wkg = _current_wkg()
 	_reset_interval_power_tracking()
 	_interval_time_left = INTERVAL_DURATION_S
-	log_label.text = "Power interval started. %d unspent energy expired." % expired_energy
+	log_label.text = "Power interval started. %d unspent energy expired. Enemy intent: %s." % [expired_energy, _enemy_intent_text()]
 	print("[hiit_mvp] interval_start target_wkg=", _interval_target_wkg())
 	_add_chart_sample()
 	_apply_interval_target()
@@ -356,9 +398,10 @@ func _begin_player_turn() -> void:
 	_phase = Phase.PLAYER_TURN
 	_energy = PLAYER_TURN_ENERGY
 	_reset_turn_cadence_tracking()
+	_draw_hand()
 	_player_time_left = PLAYER_TURN_DURATION_S
 	_interval_time_left = INTERVAL_DURATION_S
-	log_label.text = "Recovery/card phase started. Spend this turn's energy before it expires."
+	log_label.text = "Recovery/card phase started. Drew: %s." % _hand_text()
 	_add_chart_sample()
 	_apply_recovery_target()
 	_render()
@@ -376,25 +419,19 @@ func _resolve_power_up_interval() -> void:
 func _resolve_enemy_interval() -> void:
 	_last_interval_peak_wkg = _peak_interval_wkg
 	_last_interval_power_accuracy = _interval_average_power_accuracy()
-	var incoming := ENEMY_ATTACK_DAMAGE
-	var damage_taken: int = max(0, incoming - _pending_block)
-	_player_hp = max(0, _player_hp - damage_taken)
-	log_label.text = "Enemy attacked for %d. Blocked %d. Took %d. Next turn energy: %d. Power accuracy: %d%%." % [
-		incoming,
-		min(_pending_block, incoming),
-		damage_taken,
-		PLAYER_TURN_ENERGY,
-		roundi(_last_interval_power_accuracy * 100.0),
-	]
-	print("[hiit_mvp] interval_resolve peak_wkg=", _peak_interval_wkg, " damage_taken=", damage_taken, " next_energy=", PLAYER_TURN_ENERGY)
+	var resolved_text: String = _resolve_enemy_intent()
+	print("[hiit_mvp] interval_resolve peak_wkg=", _peak_interval_wkg, " intent=", _enemy_intent, " next_energy=", PLAYER_TURN_ENERGY)
 	_pending_block = 0
 	if _player_hp == 0:
 		_combat_over = true
-		log_label.text += " Player defeated."
+		log_label.text = resolved_text + " Player defeated."
 		print("[hiit_mvp] defeat")
 		_release_trainer()
 	_add_chart_sample()
-	_begin_player_turn()
+	if not _combat_over:
+		_advance_enemy_intent()
+		_begin_player_turn()
+		log_label.text = resolved_text + " Drew: %s." % _hand_text()
 
 
 func _reset_combat() -> void:
@@ -403,6 +440,10 @@ func _reset_combat() -> void:
 	_enemy_hp = ENEMY_MAX_HP
 	_energy = 0
 	_pending_block = 0
+	_enemy_block = 0
+	_enemy_strength = 0
+	_enemy_intent = EnemyIntent.BLOCK
+	_reset_deck()
 	_peak_interval_wkg = 0.0
 	_last_interval_peak_wkg = 0.0
 	_last_interval_power_accuracy = 0.0
@@ -847,10 +888,124 @@ func _format_seconds(time_s: float) -> String:
 	return "%d:%02d" % [int(total_seconds / 60), total_seconds % 60]
 
 
+func _reset_deck() -> void:
+	_draw_pile = STARTING_DECK.duplicate()
+	_draw_pile.shuffle()
+	_discard_pile.clear()
+	_hand.clear()
+
+
+func _draw_hand() -> void:
+	_discard_hand()
+	while _hand.size() < HAND_SIZE:
+		if _draw_pile.is_empty():
+			if _discard_pile.is_empty():
+				return
+			_draw_pile = _discard_pile.duplicate()
+			_draw_pile.shuffle()
+			_discard_pile.clear()
+		_hand.append(_draw_pile.pop_back())
+
+
+func _discard_hand() -> void:
+	for card in _hand:
+		_discard_pile.append(card)
+	_hand.clear()
+
+
+func _consume_card_from_hand(card_type: int) -> bool:
+	var index := _hand.find(card_type)
+	if index == -1:
+		return false
+	_hand.remove_at(index)
+	return true
+
+
+func _hand_count(card_type: int) -> int:
+	var count := 0
+	for card in _hand:
+		if card == card_type:
+			count += 1
+	return count
+
+
+func _hand_text() -> String:
+	if _hand.is_empty():
+		return "(empty)"
+	var parts: Array[String] = []
+	var strike_count: int = _hand_count(CardType.POWER_STRIKE)
+	var guard_count: int = _hand_count(CardType.CADENCE_GUARD)
+	var breath_count: int = _hand_count(CardType.RECOVERY_BREATH)
+	if strike_count > 0:
+		parts.append("Power Strike x%d" % strike_count)
+	if guard_count > 0:
+		parts.append("Cadence Guard x%d" % guard_count)
+	if breath_count > 0:
+		parts.append("Recovery Breath x%d" % breath_count)
+	return ", ".join(parts)
+
+
+func _deal_damage_to_enemy(amount: int) -> int:
+	var blocked: int = min(_enemy_block, amount)
+	_enemy_block -= blocked
+	var hp_damage: int = amount - blocked
+	_enemy_hp = max(0, _enemy_hp - hp_damage)
+	return hp_damage
+
+
+func _enemy_attack_damage() -> int:
+	return ENEMY_ATTACK_DAMAGE + _enemy_strength
+
+
+func _enemy_intent_text() -> String:
+	if _enemy_intent == EnemyIntent.BLOCK:
+		return "Block %d" % ENEMY_BLOCK_AMOUNT
+	if _enemy_intent == EnemyIntent.ATTACK:
+		return "Attack %d" % _enemy_attack_damage()
+	return "Strength +%d" % ENEMY_STRENGTH_GAIN
+
+
+func _resolve_enemy_intent() -> String:
+	var accuracy_text := "Power accuracy: %d%%." % roundi(_last_interval_power_accuracy * 100.0)
+	if _enemy_intent == EnemyIntent.BLOCK:
+		_enemy_block += ENEMY_BLOCK_AMOUNT
+		return "Enemy gained %d block. Your %d queued block expired. %s" % [
+			ENEMY_BLOCK_AMOUNT,
+			_pending_block,
+			accuracy_text,
+		]
+	if _enemy_intent == EnemyIntent.BUFF:
+		_enemy_strength += ENEMY_STRENGTH_GAIN
+		return "Enemy gained %d strength. Your %d queued block expired. %s" % [
+			ENEMY_STRENGTH_GAIN,
+			_pending_block,
+			accuracy_text,
+		]
+	var incoming: int = _enemy_attack_damage()
+	var damage_taken: int = max(0, incoming - _pending_block)
+	_player_hp = max(0, _player_hp - damage_taken)
+	return "Enemy attacked for %d. Blocked %d. Took %d. %s" % [
+		incoming,
+		min(_pending_block, incoming),
+		damage_taken,
+		accuracy_text,
+	]
+
+
+func _advance_enemy_intent() -> void:
+	if _enemy_intent == EnemyIntent.BLOCK:
+		_enemy_intent = EnemyIntent.ATTACK
+	elif _enemy_intent == EnemyIntent.ATTACK:
+		_enemy_intent = EnemyIntent.BUFF
+	else:
+		_enemy_intent = EnemyIntent.BLOCK
+
+
 func _refresh_card_buttons() -> void:
 	var strike_bonus_ready: bool = _last_interval_power_accuracy >= 1.0
 	var strike_bonus: int = POWER_STRIKE_BONUS_DAMAGE if strike_bonus_ready else 0
-	strike_button.text = "Power Strike\n%dE | %d dmg +%d\nPower hit: %d%%" % [
+	strike_button.text = "Power Strike x%d\n%dE | %d dmg +%d\nPower hit: %d%%" % [
+		_hand_count(CardType.POWER_STRIKE),
 		POWER_STRIKE_COST,
 		POWER_STRIKE_DAMAGE,
 		strike_bonus,
@@ -858,7 +1013,8 @@ func _refresh_card_buttons() -> void:
 	]
 	var guard_accuracy: float = _average_turn_cadence_accuracy()
 	var guard_bonus: int = CADENCE_GUARD_BONUS_BLOCK if guard_accuracy >= 0.9 else 0
-	guard_button.text = "Cadence Guard\n%dE | %d block +%d\nCadence: %d%%" % [
+	guard_button.text = "Cadence Guard x%d\n%dE | %d block +%d\nCadence: %d%%" % [
+		_hand_count(CardType.CADENCE_GUARD),
 		CADENCE_GUARD_COST,
 		CADENCE_GUARD_BLOCK,
 		guard_bonus,
@@ -888,10 +1044,15 @@ func _render() -> void:
 		block_label.text = "Target cadence: %.0f rpm" % _active_cadence_target()
 		accuracy_label.text = "Step size: %.0f W / %.0fs" % [ERG_STEP_WATTS, ERG_STEP_DURATION_S] if _workout_kind == WorkoutKind.ERG_STEP_TEST else "Ramp position: %d%%" % roundi(_ramp_progress() * 100.0)
 	else:
-		enemy_label.text = "Enemy HP: %d / %d" % [_enemy_hp, ENEMY_MAX_HP]
+		enemy_label.text = "Enemy HP: %d / %d   Block: %d   Strength: %d" % [_enemy_hp, ENEMY_MAX_HP, _enemy_block, _enemy_strength]
 		player_label.text = "Player HP: %d / %d" % [_player_hp, PLAYER_MAX_HP]
 		energy_label.text = "Turn energy: %d / %d" % [_energy, PLAYER_TURN_ENERGY]
-		block_label.text = "Block queued: %d   enemy attack: %d" % [_pending_block, ENEMY_ATTACK_DAMAGE]
+		block_label.text = "Player block: %d   enemy intent: %s   draw %d / discard %d" % [
+			_pending_block,
+			_enemy_intent_text(),
+			_draw_pile.size(),
+			_discard_pile.size(),
+		]
 		accuracy_label.text = "Prev power accuracy: %d%%   cadence accuracy: %d%%" % [
 			roundi(_last_interval_power_accuracy * 100.0),
 			roundi(_average_turn_cadence_accuracy() * 100.0),
@@ -975,6 +1136,7 @@ func _render() -> void:
 			CADENCE_GUARD_BLOCK,
 			CADENCE_GUARD_BONUS_BLOCK,
 		]
+		reward_label.text += " | Hand: %s. Recovery Breath is a dead draw for now." % _hand_text()
 		target_label.text += " | Next interval: %.0f W (%.2f W/kg), HR %d+, cadence %d rpm" % [
 			_interval_target_power_w(),
 			_interval_target_wkg(),
@@ -995,12 +1157,13 @@ func _render() -> void:
 			roundi(_interval_average_power_accuracy() * 100.0),
 			_interval_reward_text(_peak_interval_wkg),
 		]
+		reward_label.text += " | Enemy intent resolving: %s" % _enemy_intent_text()
 	_render_timer_only()
 	_refresh_card_buttons()
 	start_button.disabled = _phase != Phase.SETUP and not _combat_over
 	var cards_available := _workout_kind == WorkoutKind.HIIT_ENCOUNTER
-	strike_button.disabled = not cards_available or _combat_over or _phase != Phase.PLAYER_TURN or _energy < POWER_STRIKE_COST
-	guard_button.disabled = not cards_available or _combat_over or _phase != Phase.PLAYER_TURN or _energy < CADENCE_GUARD_COST
+	strike_button.disabled = not cards_available or _combat_over or _phase != Phase.PLAYER_TURN or _energy < POWER_STRIKE_COST or _hand_count(CardType.POWER_STRIKE) <= 0
+	guard_button.disabled = not cards_available or _combat_over or _phase != Phase.PLAYER_TURN or _energy < CADENCE_GUARD_COST or _hand_count(CardType.CADENCE_GUARD) <= 0
 	end_turn_button.disabled = true
 
 
