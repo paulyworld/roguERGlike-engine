@@ -70,11 +70,12 @@ This is intentionally generic. Public cycling warmup guidance commonly emphasize
 ### Player phase: Recovery / Card Play
 
 - Player energy is turn-scoped. It expires when the player ends recovery/card play.
-- Power interval performance grants the next player turn's energy budget.
+- Each recovery/card turn starts with a fixed 3 energy.
+- Power interval performance no longer changes energy. It now feeds card modifier readiness.
 - Player can play `Power Strike`.
   - Costs 2 energy.
   - Deals base damage.
-  - Gains bonus damage if the previous power interval hit target.
+  - Gains bonus damage if the previous power interval sustained target after the ramp grace.
 - Player can play `Cadence Guard`.
   - Costs 1 energy.
   - Adds block that persists into the upcoming enemy power interval.
@@ -89,18 +90,17 @@ This is intentionally generic. Public cycling warmup guidance commonly emphasize
 ### Enemy phase: Power Interval
 
 - Player cannot play cards.
-- Player tries to hit a peak W/kg target during a fixed 30 second interval.
-- Current target is 3.3 W/kg.
+- Player tries to sustain the target during a fixed 30 second interval.
+- Default 75 kg target is 4.0 W/kg, derived from 120% FTP at the default 250 W FTP.
 - Rider weight is editable in the scene and defaults to 75 kg.
 
 Resolution:
 
 - Enemy makes a generic attack during its power interval.
 - Block from `Cadence Guard` reduces that attack.
-- Target missed: next turn starts with 1 energy.
-- Target hit: next turn starts with 3 energy.
-- Target exceeded by 15%: next turn starts with 4 energy.
-- Target exceeded by 30%: next turn starts with 5 energy.
+- The next turn always starts with 3 energy.
+- The previous interval's sustained power accuracy controls whether `Power Strike` gets bonus damage.
+- The first 8 seconds of the interval are ignored for power accuracy so trainer ramp time does not punish the player.
 
 This deliberately avoids the earlier simultaneous health-race loop. Cards happen during recovery; high physical output happens during the enemy/power interval.
 
@@ -116,6 +116,7 @@ The test scene now includes a live chart with:
 - HR zone boundary lines in the heart-rate detail chart.
 - Large live readouts for watts, W/kg, HR, and cadence above the charts.
 - Prominent target meters for power, HR, and cadence showing actual vs target, delta, and color-coded target ratio.
+- ERG write support from Claude's trainer-control bridge is consumed when available. The MVP writes warmup/recovery/interval targets through `EffortBridge.set_target_power`.
 
 The left settings panel includes:
 
@@ -172,8 +173,8 @@ For a 75 kg test rider:
 
 - Default FTP is 250 W.
 - The default interval target is 120% FTP = 300 W = 4.0 W/kg.
-- 0.5 W/kg above interval target grants 4 energy.
-- 1.0 W/kg above interval target grants 5 energy.
+- Each recovery/card turn starts with 3 energy.
+- Holding the interval target after ramp grace arms the next turn's `Power Strike` bonus.
 
 ## Validation Done
 
@@ -205,7 +206,7 @@ Do not fold this branch into broader engine architecture until the loop has been
 - Should power targets be based on FTP percentage, W/kg, or both? Current test uses FTP for target power and W/kg for cross-rider display/reward margin.
 - Should recovery compliance eventually be based on HR drop instead of a fixed timer?
 - Should recovery compliance matter mechanically, or only display feedback for now?
-- Should target hit trigger energy, block, card synergies, or some combination? Current test uses power for next-turn energy and Power Strike bonus; cadence for Cadence Guard bonus block.
+- Should target hit trigger card synergies, block, or some combination? Current test uses sustained interval power for Power Strike bonus; cadence for Cadence Guard bonus block.
 - Should distance be added to the chart once `distance` events flow through `EffortBridge`?
 - Should target cadence become a scoring input, or remain guidance only?
 - Should this remain in `engine/tests/`, or should the next iteration move into the private `game` repo as a vertical slice?
@@ -217,11 +218,11 @@ Playtest the current loop manually:
 1. Enter rider stats and press `Start Workout`.
 2. Ride through the warmup ramp.
 3. During recovery, spend turn energy on `Power Strike` and/or `Cadence Guard`.
-4. End turn; any unspent energy expires.
-5. During the 30 second interval, use the sidecar power slider or real bike output to exceed the W/kg target.
+4. Wait for the recovery timer; any unspent energy expires when the power interval starts.
+5. During the 30 second interval, use the sidecar power slider or real bike output to hold the W/kg target after ramp grace.
 6. At interval end, the enemy attacks; queued block reduces damage.
-7. The next player turn receives a fresh energy budget based on interval power accuracy.
-8. Observe whether expiring energy plus power/cadence card synergies feels better than banked energy.
+7. The next player turn receives a fixed 3 energy, with Power Strike bonus readiness based on interval accuracy.
+8. Observe whether fixed energy plus power/cadence card synergies feels better than variable energy rewards.
 
 After that, make only one design change at a time. The next likely change is exposing rider weight or target W/kg in the scene so balancing can be tested without code edits.
 
