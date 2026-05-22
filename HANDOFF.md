@@ -7,6 +7,7 @@
 **Branch purpose:** Side test feature coded in Codex to validate the smallest playable effort/card loop.
 **Related umbrella note:** `../../docs/mvp-playable-loop-second-opinion.md`
 **Current focus:** Prove a HIIT-shaped encounter loop before expanding engine/framework scope.
+**Codex worktree used this session:** `C:\dev\roguERGlike\repos\engine-mvp`
 
 ## Important Context
 
@@ -31,7 +32,7 @@ That note argues for proving a playable loop before building more framework: one
 The engine test scene has been changed from a passive sidecar telemetry display into a tiny HIIT encounter prototype:
 
 ```text
-Recovery / Card Play -> Power Interval -> Recovery / Card Play
+Setup -> Warmup Ramp -> Recovery / Card Play -> Power Interval -> Recovery / Card Play
 ```
 
 Files changed on this branch:
@@ -42,7 +43,29 @@ Files changed on this branch:
 
 The scene still uses the existing `EffortBridge` autoload and sidecar WebSocket stream.
 
+## Setup And Warmup
+
+The MVP now starts in a setup state instead of immediately running combat.
+
+The player can enter rider stats, HR zones, FTP, and warmup length before pressing `Start Workout`. Pressing start clears the charts, starts the session clock, and begins a warmup ramp.
+
+Warmup defaults:
+
+- Length: 10 minutes, editable from 1-20 minutes.
+- Power target: linear ramp from 40% FTP to 70% FTP.
+- Cadence target: 85 rpm.
+- HR target: ramps from the configured Zone 2 lower bound toward the Zone 3 lower bound.
+
+This is intentionally generic. Public cycling warmup guidance commonly emphasizes a gradual warmup before hard work; this branch uses a conservative FTP-based ramp so rider weight and FTP still drive the displayed targets.
+
 ## Current Loop
+
+### Warmup phase: Warmup Ramp
+
+- No cards can be played.
+- No enemy attack happens.
+- The target meters show warmup power, HR, and cadence.
+- The ride timeline shades the warmup block blue before the combat intervals begin.
 
 ### Player phase: Recovery / Card Play
 
@@ -96,6 +119,8 @@ The left settings panel includes:
 
 - Weight in kg. This drives W/kg calculations.
 - FTP in watts. Recovery and interval power targets are derived from this.
+- Warmup length in minutes.
+- Start Workout button. This starts a fresh session and enters the warmup ramp.
 - Age input plus an "Apply 220-age zones" button.
 - Max HR.
 - Manual lower bounds for HR Zones 1-5.
@@ -104,6 +129,7 @@ The common default uses `220 - age` for max HR and zone lower bounds at 50/60/70
 
 Current phase targets:
 
+- Warmup: power target ramps from 40% FTP to 70% FTP, HR target ramps from Zone 2 lower bound toward Zone 3 lower bound, cadence target is 85 rpm.
 - Recovery/card play: power target is 55% FTP, HR target is below the Zone 3 lower bound, cadence target is 80 rpm.
 - Power interval: power target is 120% FTP, HR target is the Zone 4 lower bound, cadence target is 100 rpm.
 
@@ -158,7 +184,7 @@ Godot headless scene load passes:
 Expected console output includes:
 
 ```text
-[hiit_mvp] ready; timed recovery, power interval, charting enabled
+[hiit_mvp] ready; setup, warmup, timed recovery, power interval, charting enabled
 ```
 
 ## Relationship To Claude's Work
@@ -185,12 +211,14 @@ Do not fold this branch into broader engine architecture until the loop has been
 
 Playtest the current loop manually:
 
-1. During recovery, spend turn energy on `Power Strike` and/or `Cadence Guard`.
-2. End turn; any unspent energy expires.
-3. During the 30 second interval, use the sidecar power slider or real bike output to exceed the W/kg target.
-4. At interval end, the enemy attacks; queued block reduces damage.
-5. The next player turn receives a fresh energy budget based on interval power accuracy.
-6. Observe whether expiring energy plus power/cadence card synergies feels better than banked energy.
+1. Enter rider stats and press `Start Workout`.
+2. Ride through the warmup ramp.
+3. During recovery, spend turn energy on `Power Strike` and/or `Cadence Guard`.
+4. End turn; any unspent energy expires.
+5. During the 30 second interval, use the sidecar power slider or real bike output to exceed the W/kg target.
+6. At interval end, the enemy attacks; queued block reduces damage.
+7. The next player turn receives a fresh energy budget based on interval power accuracy.
+8. Observe whether expiring energy plus power/cadence card synergies feels better than banked energy.
 
 After that, make only one design change at a time. The next likely change is exposing rider weight or target W/kg in the scene so balancing can be tested without code edits.
 

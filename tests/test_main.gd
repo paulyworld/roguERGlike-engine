@@ -5,11 +5,15 @@ extends Control
 ## a timed recovery/player phase; physical intensity happens during a short
 ## enemy interval where the player tries to hit a W/kg target.
 
-enum Phase { PLAYER_TURN, ENEMY_INTERVAL }
+enum Phase { SETUP, WARMUP, PLAYER_TURN, ENEMY_INTERVAL }
 
 const DEFAULT_AGE := 40
 const DEFAULT_WEIGHT_KG := 75.0
 const DEFAULT_FTP_W := 250
+const DEFAULT_WARMUP_MIN := 10
+const WARMUP_START_POWER_PCT_FTP := 0.40
+const WARMUP_END_POWER_PCT_FTP := 0.70
+const WARMUP_CADENCE_RPM := 85
 const RECOVERY_POWER_PCT_FTP := 0.55
 const INTERVAL_POWER_PCT_FTP := 1.20
 const RECOVERY_CADENCE_RPM := 80
@@ -27,10 +31,10 @@ const CADENCE_GUARD_BONUS_BLOCK := 4
 const ENEMY_ATTACK_DAMAGE := 8
 const CHART_SAMPLE_PERIOD_S := 0.5
 
-var _phase := Phase.PLAYER_TURN
+var _phase := Phase.SETUP
 var _player_hp := PLAYER_MAX_HP
 var _enemy_hp := ENEMY_MAX_HP
-var _energy := 3
+var _energy := 0
 var _next_turn_energy := 3
 var _pending_block := 0
 var _current_power := 0
@@ -44,6 +48,8 @@ var _last_interval_peak_wkg := 0.0
 var _last_interval_power_accuracy := 0.0
 var _turn_cadence_accuracy := 0.0
 var _turn_cadence_samples := 0
+var _warmup_duration_s := float(DEFAULT_WARMUP_MIN * 60)
+var _warmup_time_left := float(DEFAULT_WARMUP_MIN * 60)
 var _player_time_left := PLAYER_TURN_DURATION_S
 var _interval_time_left := INTERVAL_DURATION_S
 var _session_time_s := 0.0
@@ -81,6 +87,7 @@ var _combat_over := false
 ]
 @onready var weight_spin: SpinBox = %WeightSpin
 @onready var ftp_spin: SpinBox = %FTPSpin
+@onready var warmup_spin: SpinBox = %WarmupSpin
 @onready var age_spin: SpinBox = %AgeSpin
 @onready var max_hr_spin: SpinBox = %MaxHRSpin
 @onready var z1_spin: SpinBox = %Z1Spin
@@ -89,6 +96,7 @@ var _combat_over := false
 @onready var z4_spin: SpinBox = %Z4Spin
 @onready var z5_spin: SpinBox = %Z5Spin
 @onready var formula_button: Button = %FormulaButton
+@onready var start_button: Button = %StartButton
 @onready var strike_button: Button = %StrikeButton
 @onready var guard_button: Button = %GuardButton
 @onready var end_turn_button: Button = %EndTurnButton
@@ -101,6 +109,7 @@ func _ready() -> void:
 	EffortBridge.power_changed.connect(_on_power_changed)
 	EffortBridge.cadence_changed.connect(_on_cadence_changed)
 	EffortBridge.heart_rate_changed.connect(_on_heart_rate_changed)
+	start_button.pressed.connect(_start_workout)
 	strike_button.pressed.connect(_play_power_strike)
 	guard_button.pressed.connect(_play_cadence_guard)
 	end_turn_button.pressed.connect(_start_enemy_interval)
@@ -109,17 +118,25 @@ func _ready() -> void:
 	_connect_settings_inputs()
 	_apply_common_hr_formula()
 	_render()
-	print("[hiit_mvp] ready; timed recovery, power interval, charting enabled")
+	print("[hiit_mvp] ready; setup, warmup, timed recovery, power interval, charting enabled")
 
 
 func _process(delta: float) -> void:
-	if _combat_over:
+	if _combat_over or _phase == Phase.SETUP:
 		return
 	_session_time_s += delta
 	_chart_sample_time_s += delta
 	if _chart_sample_time_s >= CHART_SAMPLE_PERIOD_S:
 		_chart_sample_time_s = 0.0
 		_add_chart_sample()
+
+	if _phase == Phase.WARMUP:
+		_warmup_time_left = max(0.0, _warmup_time_left - delta)
+		if _warmup_time_left <= 0.0:
+			_begin_player_turn()
+		else:
+			_render_timer_only()
+		return
 
 	if _phase == Phase.PLAYER_TURN:
 		_sample_turn_cadence_accuracy()
@@ -143,13 +160,16 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		if event.keycode == KEY_SPACE:
 			_play_power_strike()
 		elif event.keycode == KEY_ENTER:
-			_start_enemy_interval()
+			if _phase == Phase.SETUP or _combat_over:
+				_start_workout()
+			else:
+				_start_enemy_interval()
 		elif event.keycode == KEY_R:
 			_reset_combat()
 
 
 func _connect_settings_inputs() -> void:
-	for spin in [weight_spin, ftp_spin, max_hr_spin, z1_spin, z2_spin, z3_spin, z4_spin, z5_spin]:
+	for spin in [weight_spin, ftp_spin, warmup_spin, max_hr_spin, z1_spin, z2_spin, z3_spin, z4_spin, z5_spin]:
 		spin.value_changed.connect(_on_settings_changed)
 
 
@@ -167,6 +187,9 @@ func _apply_common_hr_formula() -> void:
 func _on_settings_changed(_value: float) -> void:
 	_rider_weight_kg = max(1.0, float(weight_spin.value))
 	_ftp_w = max(1, int(ftp_spin.value))
+	_warmup_duration_s = max(60.0, float(warmup_spin.value) * 60.0)
+	if _phase == Phase.SETUP:
+		_warmup_time_left = _warmup_duration_s
 	_max_hr = max(80, int(max_hr_spin.value))
 	_configure_chart()
 	_render()
@@ -208,6 +231,31 @@ func _play_cadence_guard() -> void:
 	_render()
 
 
+func _start_workout() -> void:
+	_on_settings_changed(0.0)
+	_player_hp = PLAYER_MAX_HP
+	_enemy_hp = ENEMY_MAX_HP
+	_energy = 0
+	_next_turn_energy = 3
+	_pending_block = 0
+	_peak_interval_wkg = 0.0
+	_last_interval_peak_wkg = 0.0
+	_last_interval_power_accuracy = 0.0
+	_reset_turn_cadence_tracking()
+	_warmup_time_left = _warmup_duration_s
+	_player_time_left = PLAYER_TURN_DURATION_S
+	_interval_time_left = INTERVAL_DURATION_S
+	_session_time_s = 0.0
+	_chart_sample_time_s = 0.0
+	_combat_over = false
+	_phase = Phase.WARMUP
+	for chart in charts:
+		chart.call("clear")
+	log_label.text = "Warmup started. Ramp smoothly before the first card turn."
+	_add_chart_sample()
+	_render()
+
+
 func _start_enemy_interval() -> void:
 	if _combat_over or _phase != Phase.PLAYER_TURN:
 		return
@@ -218,6 +266,17 @@ func _start_enemy_interval() -> void:
 	_interval_time_left = INTERVAL_DURATION_S
 	log_label.text = "Power interval started. %d unspent energy expired." % expired_energy
 	print("[hiit_mvp] interval_start target_wkg=", _interval_target_wkg())
+	_add_chart_sample()
+	_render()
+
+
+func _begin_player_turn() -> void:
+	_phase = Phase.PLAYER_TURN
+	_energy = _next_turn_energy
+	_reset_turn_cadence_tracking()
+	_player_time_left = PLAYER_TURN_DURATION_S
+	_interval_time_left = INTERVAL_DURATION_S
+	log_label.text = "Recovery/card phase started. Spend this turn's energy before it expires."
 	_add_chart_sample()
 	_render()
 
@@ -242,26 +301,22 @@ func _resolve_enemy_interval() -> void:
 		_combat_over = true
 		log_label.text += " Player defeated."
 		print("[hiit_mvp] defeat")
-	_energy = _next_turn_energy
-	_phase = Phase.PLAYER_TURN
-	_reset_turn_cadence_tracking()
-	_player_time_left = PLAYER_TURN_DURATION_S
-	_interval_time_left = INTERVAL_DURATION_S
 	_add_chart_sample()
-	_render()
+	_begin_player_turn()
 
 
 func _reset_combat() -> void:
-	_phase = Phase.PLAYER_TURN
+	_phase = Phase.SETUP
 	_player_hp = PLAYER_MAX_HP
 	_enemy_hp = ENEMY_MAX_HP
-	_energy = 3
+	_energy = 0
 	_next_turn_energy = 3
 	_pending_block = 0
 	_peak_interval_wkg = 0.0
 	_last_interval_peak_wkg = 0.0
 	_last_interval_power_accuracy = 0.0
 	_reset_turn_cadence_tracking()
+	_warmup_time_left = _warmup_duration_s
 	_player_time_left = PLAYER_TURN_DURATION_S
 	_interval_time_left = INTERVAL_DURATION_S
 	_session_time_s = 0.0
@@ -269,8 +324,7 @@ func _reset_combat() -> void:
 	_combat_over = false
 	for chart in charts:
 		chart.call("clear")
-	log_label.text = "New HIIT encounter."
-	_add_chart_sample()
+	log_label.text = "Enter rider stats and press Start Workout."
 	_render()
 
 
@@ -288,6 +342,20 @@ func _recovery_target_power_w() -> float:
 
 func _interval_target_power_w() -> float:
 	return float(_ftp_w) * INTERVAL_POWER_PCT_FTP
+
+
+func _warmup_start_power_w() -> float:
+	return float(_ftp_w) * WARMUP_START_POWER_PCT_FTP
+
+
+func _warmup_end_power_w() -> float:
+	return float(_ftp_w) * WARMUP_END_POWER_PCT_FTP
+
+
+func _warmup_target_power_w() -> float:
+	var elapsed: float = _warmup_duration_s - _warmup_time_left
+	var progress: float = clamp(elapsed / max(_warmup_duration_s, 1.0), 0.0, 1.0)
+	return lerpf(_warmup_start_power_w(), _warmup_end_power_w(), progress)
 
 
 func _recovery_target_wkg() -> float:
@@ -341,18 +409,30 @@ func _current_cadence_accuracy() -> float:
 
 
 func _active_power_target() -> float:
+	if _phase == Phase.SETUP:
+		return _warmup_start_power_w()
+	if _phase == Phase.WARMUP:
+		return _warmup_target_power_w()
 	if _phase == Phase.PLAYER_TURN:
 		return _recovery_target_power_w()
 	return _interval_target_power_w()
 
 
 func _active_hr_target() -> float:
+	if _phase == Phase.SETUP:
+		return float(z2_spin.value)
+	if _phase == Phase.WARMUP:
+		var elapsed: float = _warmup_duration_s - _warmup_time_left
+		var progress: float = clamp(elapsed / max(_warmup_duration_s, 1.0), 0.0, 1.0)
+		return lerpf(float(z2_spin.value), float(z3_spin.value), progress)
 	if _phase == Phase.PLAYER_TURN:
 		return float(_recovery_target_hr())
 	return float(_interval_target_hr())
 
 
 func _active_cadence_target() -> float:
+	if _phase == Phase.SETUP or _phase == Phase.WARMUP:
+		return float(WARMUP_CADENCE_RPM)
 	if _phase == Phase.PLAYER_TURN:
 		return float(RECOVERY_CADENCE_RPM)
 	return float(INTERVAL_CADENCE_RPM)
@@ -452,6 +532,10 @@ func _reset_turn_cadence_tracking() -> void:
 
 
 func _phase_name() -> String:
+	if _phase == Phase.SETUP:
+		return "Setup"
+	if _phase == Phase.WARMUP:
+		return "Warmup Ramp"
 	if _phase == Phase.PLAYER_TURN:
 		return "Recovery / Card Play"
 	return "Power Interval"
@@ -484,10 +568,16 @@ func _configure_chart() -> void:
 			_zone_bounds(),
 			_recovery_target_power_w(),
 			_interval_target_power_w(),
+			_warmup_duration_s,
+			_warmup_start_power_w(),
+			_warmup_end_power_w(),
 			float(_recovery_target_hr()),
 			float(_interval_target_hr()),
+			float(z2_spin.value),
+			float(z3_spin.value),
 			float(RECOVERY_CADENCE_RPM),
-			float(INTERVAL_CADENCE_RPM)
+			float(INTERVAL_CADENCE_RPM),
+			float(WARMUP_CADENCE_RPM)
 		)
 
 
@@ -518,7 +608,26 @@ func _render() -> void:
 		roundi(_last_interval_power_accuracy * 100.0),
 		roundi(_average_turn_cadence_accuracy() * 100.0),
 	]
-	if _phase == Phase.PLAYER_TURN:
+	if _phase == Phase.SETUP:
+		target_label.text = "Setup: enter weight, FTP, HR zones, and warmup length; Start Workout begins a %.0f-%.0f%% FTP ramp." % [
+			WARMUP_START_POWER_PCT_FTP * 100.0,
+			WARMUP_END_POWER_PCT_FTP * 100.0,
+		]
+		reward_label.text = "Warmup: %.0f min ramp from %.0f W to %.0f W, cadence %d rpm, HR rising from Z2 toward Z3." % [
+			_warmup_duration_s / 60.0,
+			_warmup_start_power_w(),
+			_warmup_end_power_w(),
+			WARMUP_CADENCE_RPM,
+		]
+	elif _phase == Phase.WARMUP:
+		target_label.text = "Warmup ramp target: %.0f W (%.2f W/kg), HR %.0f, cadence %d rpm" % [
+			_warmup_target_power_w(),
+			_warmup_target_power_w() / _rider_weight_kg,
+			_active_hr_target(),
+			WARMUP_CADENCE_RPM,
+		]
+		reward_label.text = "Workout starts after warmup. Keep effort smooth; no cards during warmup."
+	elif _phase == Phase.PLAYER_TURN:
 		target_label.text = "Recovery targets: %.0f W (%.2f W/kg), HR <%d, cadence %d rpm (%s)" % [
 			_recovery_target_power_w(),
 			_recovery_target_wkg(),
@@ -554,13 +663,18 @@ func _render() -> void:
 			_interval_reward_text(_peak_interval_wkg),
 		]
 	_render_timer_only()
+	start_button.disabled = _phase != Phase.SETUP and not _combat_over
 	strike_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN or _energy < POWER_STRIKE_COST
 	guard_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN or _energy < CADENCE_GUARD_COST
 	end_turn_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN
 
 
 func _render_timer_only() -> void:
-	if _phase == Phase.PLAYER_TURN:
+	if _phase == Phase.SETUP:
+		timer_label.text = "Workout not started."
+	elif _phase == Phase.WARMUP:
+		timer_label.text = "Warmup time left: %.1fs" % _warmup_time_left
+	elif _phase == Phase.PLAYER_TURN:
 		timer_label.text = "Recovery/card timer: %.1fs" % _player_time_left
 	else:
 		timer_label.text = "Power interval time left: %.1fs" % _interval_time_left

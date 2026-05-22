@@ -16,10 +16,16 @@ var _weight_kg := 75.0
 var _hr_zone_bounds: Array[int] = [90, 108, 126, 144, 162]
 var _recovery_target_power_w := 140.0
 var _interval_target_power_w := 300.0
+var _warmup_duration_s := 600.0
+var _warmup_start_power_w := 100.0
+var _warmup_end_power_w := 175.0
 var _recovery_target_hr_bpm := 126.0
 var _interval_target_hr_bpm := 144.0
+var _warmup_start_hr_bpm := 108.0
+var _warmup_end_hr_bpm := 126.0
 var _recovery_target_cadence_rpm := 80.0
 var _interval_target_cadence_rpm := 100.0
+var _warmup_target_cadence_rpm := 85.0
 
 
 func configure(
@@ -28,20 +34,32 @@ func configure(
 	hr_zone_bounds: Array[int],
 	recovery_target_power_w: float,
 	interval_target_power_w: float,
+	warmup_duration_s: float,
+	warmup_start_power_w: float,
+	warmup_end_power_w: float,
 	recovery_target_hr_bpm: float,
 	interval_target_hr_bpm: float,
+	warmup_start_hr_bpm: float,
+	warmup_end_hr_bpm: float,
 	recovery_target_cadence_rpm: float,
-	interval_target_cadence_rpm: float
+	interval_target_cadence_rpm: float,
+	warmup_target_cadence_rpm: float
 ) -> void:
 	_weight_kg = weight_kg
 	_max_hr = max_hr
 	_hr_zone_bounds = hr_zone_bounds.duplicate()
 	_recovery_target_power_w = recovery_target_power_w
 	_interval_target_power_w = interval_target_power_w
+	_warmup_duration_s = warmup_duration_s
+	_warmup_start_power_w = warmup_start_power_w
+	_warmup_end_power_w = warmup_end_power_w
 	_recovery_target_hr_bpm = recovery_target_hr_bpm
 	_interval_target_hr_bpm = interval_target_hr_bpm
+	_warmup_start_hr_bpm = warmup_start_hr_bpm
+	_warmup_end_hr_bpm = warmup_end_hr_bpm
 	_recovery_target_cadence_rpm = recovery_target_cadence_rpm
 	_interval_target_cadence_rpm = interval_target_cadence_rpm
+	_warmup_target_cadence_rpm = warmup_target_cadence_rpm
 	queue_redraw()
 
 
@@ -75,17 +93,17 @@ func _draw() -> void:
 			_draw_ride_view(plot)
 		ChartMode.POWER:
 			_draw_metric_chart(plot, "power", Color(0.95, 0.35, 0.22), _power_max())
-			_draw_phase_targets(plot, _recovery_target_power_w, _interval_target_power_w, _power_max(), Color(1.0, 0.72, 0.22))
+			_draw_phase_targets(plot, _recovery_target_power_w, _interval_target_power_w, _warmup_start_power_w, _warmup_end_power_w, _power_max(), Color(1.0, 0.72, 0.22))
 			_draw_title(plot, "Power / Target Power")
 		ChartMode.HEART_RATE:
 			var hr_max := float(max(_max_hr, 120))
 			_draw_hr_zones(plot, hr_max)
 			_draw_metric_chart(plot, "hr", Color(0.95, 0.2, 0.55), hr_max)
-			_draw_phase_targets(plot, _recovery_target_hr_bpm, _interval_target_hr_bpm, hr_max, Color(1.0, 0.45, 0.8))
+			_draw_phase_targets(plot, _recovery_target_hr_bpm, _interval_target_hr_bpm, _warmup_start_hr_bpm, _warmup_end_hr_bpm, hr_max, Color(1.0, 0.45, 0.8))
 			_draw_title(plot, "Heart Rate / Target HR")
 		ChartMode.CADENCE:
 			_draw_metric_chart(plot, "cadence", Color(0.25, 0.72, 1.0), 150.0)
-			_draw_phase_targets(plot, _recovery_target_cadence_rpm, _interval_target_cadence_rpm, 150.0, Color(0.35, 0.9, 1.0))
+			_draw_phase_targets(plot, _recovery_target_cadence_rpm, _interval_target_cadence_rpm, _warmup_target_cadence_rpm, _warmup_target_cadence_rpm, 150.0, Color(0.35, 0.9, 1.0))
 			_draw_title(plot, "Cadence / Target Cadence")
 
 	_draw_footer(plot)
@@ -139,7 +157,20 @@ func _draw_grid(plot: Rect2) -> void:
 
 
 func _draw_workout_blocks(plot: Rect2) -> void:
-	var t: float = 0.0
+	var warmup_end: float = min(_warmup_duration_s, TOTAL_WORKOUT_S)
+	if warmup_end > 0.0:
+		draw_rect(
+			Rect2(
+				_x_for_time(plot, 0.0),
+				plot.position.y,
+				max(1.0, _x_for_time(plot, warmup_end) - _x_for_time(plot, 0.0)),
+				plot.size.y
+			),
+			Color(0.08, 0.18, 0.30, 0.34),
+			true
+		)
+
+	var t: float = warmup_end
 	var phase := 0
 	while t < TOTAL_WORKOUT_S:
 		var duration: float = 60.0 if phase == 0 else 30.0
@@ -182,8 +213,25 @@ func _draw_metric_chart(
 		draw_polyline(points, color, 1.5 if thinner else 2.5)
 
 
-func _draw_phase_targets(plot: Rect2, recovery_target: float, interval_target: float, max_value: float, color: Color) -> void:
-	var t: float = 0.0
+func _draw_phase_targets(
+	plot: Rect2,
+	recovery_target: float,
+	interval_target: float,
+	warmup_start_target: float,
+	warmup_end_target: float,
+	max_value: float,
+	color: Color
+) -> void:
+	var warmup_end: float = min(_warmup_duration_s, TOTAL_WORKOUT_S)
+	if warmup_end > 0.0:
+		_draw_dotted_line(
+			Vector2(_x_for_time(plot, 0.0), _y_for_value(plot, warmup_start_target, max_value)),
+			Vector2(_x_for_time(plot, warmup_end), _y_for_value(plot, warmup_end_target, max_value)),
+			color,
+			2.0
+		)
+
+	var t: float = warmup_end
 	var phase := 0
 	while t < TOTAL_WORKOUT_S:
 		var duration: float = 60.0 if phase == 0 else 30.0
@@ -234,7 +282,7 @@ func _draw_footer(plot: Rect2) -> void:
 	font.draw_string(
 		get_canvas_item(),
 		Vector2(plot.position.x, plot.end.y + 18.0),
-		"Timeline: 20:00; shaded blocks are recovery/power phases; distance pending sidecar distance events",
+		"Timeline: 20:00; blue warmup ramp, green recovery/card play, red power interval; distance pending sidecar events",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		12,
