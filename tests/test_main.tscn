@@ -308,14 +308,14 @@ show_percentage = false
 
 [node name="RideChart" type="Control" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(620, 110)
+custom_minimum_size = Vector2(620, 130)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("2_chart")
 
 [node name="PowerChart" type="Control" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(620, 82)
+custom_minimum_size = Vector2(620, 105)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("2_chart")
@@ -323,7 +323,7 @@ mode = 1
 
 [node name="HRChart" type="Control" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(620, 82)
+custom_minimum_size = Vector2(620, 105)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("2_chart")
@@ -331,7 +331,7 @@ mode = 2
 
 [node name="CadenceChart" type="Control" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(620, 82)
+custom_minimum_size = Vector2(620, 105)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("2_chart")

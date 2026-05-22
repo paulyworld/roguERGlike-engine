@@ -41,6 +41,29 @@ var _erg_step_peak_power_w := 375.0
 var _erg_step_watts := 40.0
 var _erg_step_duration_s := 15.0
 var _erg_step_cadence_rpm := 90.0
+var _hover_pos := Vector2.ZERO
+var _has_hover := false
+
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_PASS
+
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		_hover_pos = event.position
+		_has_hover = _plot_rect().has_point(_hover_pos)
+		queue_redraw()
+	elif event is InputEventMouseButton:
+		_hover_pos = event.position
+		_has_hover = _plot_rect().has_point(_hover_pos)
+		queue_redraw()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_MOUSE_EXIT:
+		_has_hover = false
+		queue_redraw()
 
 
 func configure(
@@ -131,21 +154,29 @@ func _draw() -> void:
 		ChartMode.RIDE_VIEW:
 			_draw_ride_view(plot)
 		ChartMode.POWER:
-			_draw_metric_chart(plot, "power", Color(0.95, 0.35, 0.22), _power_max())
-			_draw_phase_targets(plot, _recovery_target_power_w, _interval_target_power_w, _warmup_start_power_w, _warmup_end_power_w, _power_max(), Color(1.0, 0.72, 0.22))
+			var power_max := _power_max()
+			_draw_range_labels(plot, power_max, "W")
+			_draw_metric_chart(plot, "power", Color(0.95, 0.35, 0.22), power_max)
+			_draw_phase_targets(plot, _recovery_target_power_w, _interval_target_power_w, _warmup_start_power_w, _warmup_end_power_w, power_max, Color(1.0, 0.72, 0.22))
+			_draw_target_annotation(plot, power_max, "W", Color(1.0, 0.72, 0.22))
 			_draw_title(plot, "Power / Target Power")
 		ChartMode.HEART_RATE:
 			var hr_max := float(max(_max_hr, 120))
+			_draw_range_labels(plot, hr_max, "bpm")
 			_draw_hr_zones(plot, hr_max)
 			_draw_metric_chart(plot, "hr", Color(0.95, 0.2, 0.55), hr_max)
 			_draw_phase_targets(plot, _recovery_target_hr_bpm, _interval_target_hr_bpm, _warmup_start_hr_bpm, _warmup_end_hr_bpm, hr_max, Color(1.0, 0.45, 0.8))
+			_draw_target_annotation(plot, hr_max, "bpm", Color(1.0, 0.45, 0.8))
 			_draw_title(plot, "Heart Rate / Target HR")
 		ChartMode.CADENCE:
+			_draw_range_labels(plot, 150.0, "rpm")
 			_draw_metric_chart(plot, "cadence", Color(0.25, 0.72, 1.0), 150.0)
 			_draw_phase_targets(plot, _recovery_target_cadence_rpm, _interval_target_cadence_rpm, _warmup_target_cadence_rpm, _warmup_target_cadence_rpm, 150.0, Color(0.35, 0.9, 1.0))
+			_draw_target_annotation(plot, 150.0, "rpm", Color(0.35, 0.9, 1.0))
 			_draw_title(plot, "Cadence / Target Cadence")
 
 	_draw_footer(plot)
+	_draw_hover_readout(plot)
 
 
 func _plot_rect() -> Rect2:
@@ -193,6 +224,28 @@ func _draw_grid(plot: Rect2) -> void:
 	for i in range(1, 5):
 		var x := plot.position.x + plot.size.x * float(i) / 5.0
 		draw_line(Vector2(x, plot.position.y), Vector2(x, plot.end.y), Color(0.16, 0.16, 0.17), 1.0)
+
+
+func _draw_range_labels(plot: Rect2, max_value: float, unit: String) -> void:
+	var font := get_theme_default_font()
+	font.draw_string(
+		get_canvas_item(),
+		Vector2(4.0, plot.position.y + 10.0),
+		"%.0f %s" % [max_value, unit],
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		10,
+		Color(0.62, 0.62, 0.64)
+	)
+	font.draw_string(
+		get_canvas_item(),
+		Vector2(4.0, plot.end.y - 2.0),
+		"0",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		10,
+		Color(0.62, 0.62, 0.64)
+	)
 
 
 func _draw_workout_blocks(plot: Rect2) -> void:
@@ -331,6 +384,201 @@ func _draw_erg_step_target_curve(plot: Rect2, max_value: float, color: Color) ->
 		t = end_t
 
 
+func _draw_target_annotation(plot: Rect2, max_value: float, unit: String, color: Color) -> void:
+	var font := get_theme_default_font()
+	var target: float = _target_for_mode(max_value, min(_elapsed_time(), _total_workout_s))
+	var text: String = _target_summary(max_value, unit)
+	var y: float = clamp(_y_for_value(plot, target, max_value) - 4.0, plot.position.y + 14.0, plot.end.y - 4.0)
+	font.draw_string(
+		get_canvas_item(),
+		Vector2(plot.position.x + 112.0, y),
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		11,
+		color
+	)
+
+
+func _target_summary(max_value: float, unit: String) -> String:
+	if _workout_kind == WORKOUT_ERG_STEP_TEST:
+		if _is_power_axis(max_value):
+			return "target %.0f-%.0f %s, +%.0f every %s" % [
+				_erg_step_start_power_w,
+				_erg_step_peak_power_w,
+				unit,
+				_erg_step_watts,
+				_format_seconds(_erg_step_duration_s),
+			]
+		if _is_cadence_axis(max_value):
+			return "target %.0f %s" % [_erg_step_cadence_rpm, unit]
+	if _workout_kind == WORKOUT_RAMP_POWER_TEST:
+		if _is_power_axis(max_value):
+			return "target %.0f-%.0f %s ramp" % [_ramp_start_power_w, _ramp_peak_power_w, unit]
+		if _is_cadence_axis(max_value):
+			return "target %.0f-%.0f %s ramp" % [_ramp_start_cadence_rpm, _ramp_peak_cadence_rpm, unit]
+	if _is_power_axis(max_value):
+		return "target warm %.0f-%.0f, rec %.0f, pow %.0f %s" % [
+			_warmup_start_power_w,
+			_warmup_end_power_w,
+			_recovery_target_power_w,
+			_interval_target_power_w,
+			unit,
+		]
+	if _is_cadence_axis(max_value):
+		return "target warm %.0f, rec %.0f, pow %.0f %s" % [
+			_warmup_target_cadence_rpm,
+			_recovery_target_cadence_rpm,
+			_interval_target_cadence_rpm,
+			unit,
+		]
+	return "target warm %.0f-%.0f, rec %.0f, pow %.0f %s" % [
+		_warmup_start_hr_bpm,
+		_warmup_end_hr_bpm,
+		_recovery_target_hr_bpm,
+		_interval_target_hr_bpm,
+		unit,
+	]
+
+
+func _draw_hover_readout(plot: Rect2) -> void:
+	if not _has_hover or not plot.has_point(_hover_pos):
+		return
+
+	var time_s: float = clamp((_hover_pos.x - plot.position.x) / plot.size.x, 0.0, 1.0) * _total_workout_s
+	var x: float = _x_for_time(plot, time_s)
+	draw_line(Vector2(x, plot.position.y), Vector2(x, plot.end.y), Color(1.0, 1.0, 1.0, 0.32), 1.0)
+
+	var sample: Dictionary = _nearest_sample(time_s)
+	var lines: Array[String] = ["t %s" % _format_seconds(time_s)]
+	match mode:
+		ChartMode.RIDE_VIEW:
+			var power_max: float = _power_max()
+			var hr_max: float = float(max(_max_hr, 120))
+			var power_target: float = _target_for_mode(power_max, time_s)
+			var hr_target: float = _target_for_mode(hr_max, time_s)
+			var cadence_target: float = _target_for_mode(150.0, time_s)
+			lines.append("power %.0f W / %s" % [power_target, _sample_value_text(sample, "power", "W")])
+			lines.append("HR %.0f bpm / %s" % [hr_target, _sample_value_text(sample, "hr", "bpm")])
+			lines.append("cad %.0f rpm / %s" % [cadence_target, _sample_value_text(sample, "cadence", "rpm")])
+		ChartMode.POWER:
+			_append_metric_hover(lines, plot, sample, "power", _power_max(), "W", Color(1.0, 0.72, 0.22), Color(0.95, 0.35, 0.22), time_s)
+		ChartMode.HEART_RATE:
+			_append_metric_hover(lines, plot, sample, "hr", float(max(_max_hr, 120)), "bpm", Color(1.0, 0.45, 0.8), Color(0.95, 0.2, 0.55), time_s)
+		ChartMode.CADENCE:
+			_append_metric_hover(lines, plot, sample, "cadence", 150.0, "rpm", Color(0.35, 0.9, 1.0), Color(0.25, 0.72, 1.0), time_s)
+
+	_draw_tooltip(lines, plot, Vector2(x + 8.0, _hover_pos.y + 8.0))
+
+
+func _append_metric_hover(
+	lines: Array[String],
+	plot: Rect2,
+	sample: Dictionary,
+	key: String,
+	max_value: float,
+	unit: String,
+	target_color: Color,
+	actual_color: Color,
+	time_s: float
+) -> void:
+	var target: float = _target_for_mode(max_value, time_s)
+	lines.append("target %.0f %s" % [target, unit])
+	draw_circle(Vector2(_x_for_time(plot, time_s), _y_for_value(plot, target, max_value)), 4.0, target_color)
+
+	if sample.has(key):
+		var actual: float = float(sample[key])
+		lines.append("actual %.0f %s" % [actual, unit])
+		draw_circle(Vector2(_x_for_time(plot, float(sample["time"])), _y_for_value(plot, actual, max_value)), 4.0, actual_color)
+	else:
+		lines.append("actual --")
+
+
+func _draw_tooltip(lines: Array[String], plot: Rect2, pos: Vector2) -> void:
+	var font := get_theme_default_font()
+	var font_size: int = 12
+	var width: float = 0.0
+	for line in lines:
+		width = max(width, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x)
+	var height: float = float(lines.size()) * 15.0 + 8.0
+	var box: Rect2 = Rect2(pos, Vector2(width + 12.0, height))
+	if box.end.x > plot.end.x:
+		box.position.x = max(plot.position.x + 4.0, pos.x - box.size.x - 16.0)
+	if box.end.y > plot.end.y:
+		box.position.y = max(plot.position.y + 4.0, pos.y - box.size.y - 16.0)
+	draw_rect(box, Color(0.025, 0.025, 0.03, 0.94), true)
+	draw_rect(box, Color(0.72, 0.72, 0.75, 0.72), false, 1.0)
+	for i in range(lines.size()):
+		font.draw_string(
+			get_canvas_item(),
+			Vector2(box.position.x + 6.0, box.position.y + 16.0 + float(i) * 15.0),
+			lines[i],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			font_size,
+			Color(0.92, 0.92, 0.92)
+		)
+
+
+func _nearest_sample(time_s: float) -> Dictionary:
+	if _samples.is_empty():
+		return {}
+	var nearest: Dictionary = _samples[0]
+	var nearest_delta: float = abs(float(nearest["time"]) - time_s)
+	for sample in _samples:
+		var delta: float = abs(float(sample["time"]) - time_s)
+		if delta < nearest_delta:
+			nearest = sample
+			nearest_delta = delta
+	return nearest
+
+
+func _sample_value_text(sample: Dictionary, key: String, unit: String) -> String:
+	if not sample.has(key):
+		return "--"
+	return "%.0f %s" % [float(sample[key]), unit]
+
+
+func _target_for_mode(max_value: float, time_s: float) -> float:
+	if _workout_kind == WORKOUT_RAMP_POWER_TEST:
+		return _ramp_target_for_mode(max_value, time_s)
+	if _workout_kind == WORKOUT_ERG_STEP_TEST:
+		return _erg_step_target_for_mode(max_value, time_s)
+
+	var warmup_end: float = min(_warmup_duration_s, _total_workout_s)
+	if time_s < warmup_end and warmup_end > 0.0:
+		var warmup_ratio: float = clamp(time_s / warmup_end, 0.0, 1.0)
+		if _is_power_axis(max_value):
+			return lerpf(_warmup_start_power_w, _warmup_end_power_w, warmup_ratio)
+		if _is_cadence_axis(max_value):
+			return _warmup_target_cadence_rpm
+		return lerpf(_warmup_start_hr_bpm, _warmup_end_hr_bpm, warmup_ratio)
+
+	var elapsed_after_warmup: float = max(0.0, time_s - warmup_end)
+	var cursor: float = 0.0
+	var phase := 1
+	while cursor <= elapsed_after_warmup:
+		var duration: float = _recovery_duration_s if phase == 0 else 30.0
+		if elapsed_after_warmup < cursor + duration:
+			if _is_power_axis(max_value):
+				return _recovery_target_power_w if phase == 0 else _interval_target_power_w
+			if _is_cadence_axis(max_value):
+				return _recovery_target_cadence_rpm if phase == 0 else _interval_target_cadence_rpm
+			return _recovery_target_hr_bpm if phase == 0 else _interval_target_hr_bpm
+		cursor += duration
+		phase = 1 - phase
+
+	return _interval_target_power_w if _is_power_axis(max_value) else _interval_target_cadence_rpm if _is_cadence_axis(max_value) else _interval_target_hr_bpm
+
+
+func _is_power_axis(max_value: float) -> bool:
+	return max_value > float(max(_max_hr, 120)) + 1.0 and not _is_cadence_axis(max_value)
+
+
+func _is_cadence_axis(max_value: float) -> bool:
+	return is_equal_approx(max_value, 150.0)
+
+
 func _ramp_target_for_mode(max_value: float, time_s: float) -> float:
 	if is_equal_approx(max_value, 150.0):
 		return _ramp_curve_value(_ramp_start_cadence_rpm, _ramp_peak_cadence_rpm, time_s)
@@ -343,7 +591,7 @@ func _erg_step_target_for_mode(max_value: float, time_s: float) -> float:
 	if is_equal_approx(max_value, 150.0):
 		return _erg_step_cadence_rpm
 	if max_value <= float(max(_max_hr, 120)):
-		var ratio := inverse_lerp(_erg_step_start_power_w, _erg_step_peak_power_w, _erg_step_target_power_at(time_s))
+		var ratio: float = inverse_lerp(_erg_step_start_power_w, _erg_step_peak_power_w, _erg_step_target_power_at(time_s))
 		return lerpf(_warmup_start_hr_bpm, float(_hr_zone_bounds[min(4, _hr_zone_bounds.size() - 1)]), clamp(ratio, 0.0, 1.0))
 	return _erg_step_target_power_at(time_s)
 

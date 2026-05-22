@@ -127,9 +127,12 @@ The test scene now includes a live chart with:
 - A `Ride View` timeline for the selected workout length.
 - The chart timeline length follows the dashboard's workout-length control.
 - Separate detail charts for power, heart rate, and cadence to reduce visual crowding.
+- Detail charts have taller plot areas than the first version so the y-axis is easier to read during live testing.
 - Time on the x-axis. Distance is still pending until distance events are exposed through the sidecar/engine bridge.
 - Background phase bands for recovery/card play vs power interval.
 - Dotted phase-specific target lines in each detail chart.
+- Each detail chart now labels its y-axis range and annotates the target curve with the relevant target ranges and step values.
+- Hovering a chart shows a popup for the hovered time with target and nearest historic performance values. Detail charts show the current metric; Ride View shows power, HR, and cadence together.
 - HR zone boundary lines in the heart-rate detail chart.
 - Large live readouts for watts, W/kg, HR, and cadence above the charts.
 - Prominent target meters for power, HR, and cadence showing actual vs target, delta, and color-coded target ratio.
