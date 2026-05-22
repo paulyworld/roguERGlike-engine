@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://b8x0cg5h2k1m3"]
+[gd_scene load_steps=3 format=3 uid="uid://b8x0cg5h2k1m3"]
 
 [ext_resource type="Script" path="res://tests/test_main.gd" id="1_main"]
+[ext_resource type="Script" path="res://tests/telemetry_chart.gd" id="2_chart"]
 
 [node name="TestMain" type="Control"]
 anchors_preset = 15
@@ -10,52 +11,432 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="VBox" type="VBoxContainer" parent="."]
-unique_name_in_owner = true
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -240.0
-offset_top = -120.0
-offset_right = 240.0
-offset_bottom = 120.0
+[node name="Root" type="HBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 12
 
-[node name="Title" type="Label" parent="VBox"]
+[node name="SettingsPanel" type="PanelContainer" parent="Root"]
+custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
-text = "roguERGlike engine — sidecar handshake test"
+
+[node name="SettingsVBox" type="VBoxContainer" parent="Root/SettingsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SettingsTitle" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Rider Settings"
 horizontal_alignment = 1
 
-[node name="StatusLabel" type="Label" parent="VBox"]
+[node name="WorkoutLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Encounter / workout"
+
+[node name="WorkoutOption" type="OptionButton" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="WeightLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Weight (kg)"
+
+[node name="WeightSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 35.0
+max_value = 180.0
+step = 0.5
+value = 75.0
+
+[node name="FTPLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "FTP (W)"
+
+[node name="FTPSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 50.0
+max_value = 600.0
+value = 250.0
+
+[node name="WorkoutLengthLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Workout length (minutes)"
+
+[node name="WorkoutLengthSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 5.0
+max_value = 90.0
+value = 20.0
+
+[node name="WarmupLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Warmup (minutes)"
+
+[node name="WarmupSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 1.0
+max_value = 20.0
+value = 10.0
+
+[node name="AgeLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Age for 220-age default"
+
+[node name="AgeSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 10.0
+max_value = 100.0
+value = 40.0
+
+[node name="MaxHRLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Max HR"
+
+[node name="MaxHRSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 100.0
+max_value = 230.0
+value = 180.0
+
+[node name="FormulaButton" type="Button" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Apply 220-age zones"
+
+[node name="StartButton" type="Button" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Start Workout"
+
+[node name="ZoneSeparator" type="HSeparator" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+
+[node name="ZoneTitle" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Manual HR zone lower bounds"
+
+[node name="Z1Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z1 lower"
+
+[node name="Z1Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 90.0
+
+[node name="Z2Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z2 lower"
+
+[node name="Z2Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 108.0
+
+[node name="Z3Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z3 lower"
+
+[node name="Z3Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 126.0
+
+[node name="Z4Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z4 lower"
+
+[node name="Z4Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 144.0
+
+[node name="Z5Label" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Z5 lower"
+
+[node name="Z5Spin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 40.0
+max_value = 230.0
+value = 162.0
+
+[node name="MainPanel" type="PanelContainer" parent="Root"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MainVBox" type="VBoxContainer" parent="Root/MainPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Root/MainPanel/MainVBox"]
+layout_mode = 2
+text = "HIIT MVP Encounter"
+horizontal_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Sidecar: disconnected"
 
-[node name="DeviceLabel" type="Label" parent="VBox"]
+[node name="DeviceLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Device: (none)"
 
-[node name="PowerLabel" type="Label" parent="VBox"]
+[node name="TelemetryLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Power: -- W"
+text = "Power: 0 W   W/kg: 0.00   Cadence: 0 rpm   HR: 0 bpm"
 
-[node name="CadenceLabel" type="Label" parent="VBox"]
-unique_name_in_owner = true
+[node name="MetricsRow" type="HBoxContainer" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2
-text = "Cadence: -- rpm"
+theme_override_constants/separation = 10
 
-[node name="HeartRateLabel" type="Label" parent="VBox"]
+[node name="PowerBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 34)
 layout_mode = 2
-text = "HR: -- bpm"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "0 W"
+horizontal_alignment = 1
 
-[node name="DerivedLabel" type="Label" parent="VBox"]
+[node name="WkgBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "0.00 W/kg"
+horizontal_alignment = 1
+
+[node name="HRBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "0 bpm"
+horizontal_alignment = 1
+
+[node name="CadenceBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "0 rpm"
+horizontal_alignment = 1
+
+[node name="MetersRow" type="HBoxContainer" parent="Root/MainPanel/MainVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PowerMeterBox" type="VBoxContainer" parent="Root/MainPanel/MainVBox/MetersRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="PowerMeterLabel" type="Label" parent="Root/MainPanel/MainVBox/MetersRow/PowerMeterBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "(no surge)"
+text = "Power 0 / 0 W"
+horizontal_alignment = 1
+
+[node name="PowerMeter" type="ProgressBar" parent="Root/MainPanel/MainVBox/MetersRow/PowerMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 130.0
+show_percentage = false
+
+[node name="HRMeterBox" type="VBoxContainer" parent="Root/MainPanel/MainVBox/MetersRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="HRMeterLabel" type="Label" parent="Root/MainPanel/MainVBox/MetersRow/HRMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "HR 0 / 0 bpm"
+horizontal_alignment = 1
+
+[node name="HRMeter" type="ProgressBar" parent="Root/MainPanel/MainVBox/MetersRow/HRMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 130.0
+show_percentage = false
+
+[node name="CadenceMeterBox" type="VBoxContainer" parent="Root/MainPanel/MainVBox/MetersRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="CadenceMeterLabel" type="Label" parent="Root/MainPanel/MainVBox/MetersRow/CadenceMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Cadence 0 / 0 rpm"
+horizontal_alignment = 1
+
+[node name="CadenceMeter" type="ProgressBar" parent="Root/MainPanel/MainVBox/MetersRow/CadenceMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 130.0
+show_percentage = false
+
+[node name="RideChart" type="Control" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(620, 110)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_chart")
+
+[node name="PowerChart" type="Control" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(620, 82)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_chart")
+mode = 1
+
+[node name="HRChart" type="Control" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(620, 82)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_chart")
+mode = 2
+
+[node name="CadenceChart" type="Control" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(620, 82)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_chart")
+mode = 3
+
+[node name="Separator1" type="HSeparator" parent="Root/MainPanel/MainVBox"]
+layout_mode = 2
+
+[node name="PhaseLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Phase: Recovery / Card Play"
+
+[node name="TargetLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Recovery: 2.0 W/kg ceiling"
+
+[node name="TimerLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Workout not started."
+horizontal_alignment = 1
+
+[node name="RewardLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Interval rewards: miss +1, target +3, +0.5 W/kg +4, +1.0 W/kg +5"
+autowrap_mode = 3
+
+[node name="Separator2" type="HSeparator" parent="Root/MainPanel/MainVBox"]
+layout_mode = 2
+
+[node name="EnemyLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Enemy HP: 30 / 30"
+
+[node name="PlayerLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Player HP: 20 / 20"
+
+[node name="EnergyLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Turn energy: 3   next: 3"
+
+[node name="BlockLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Block queued: 0   enemy attack: 8"
+
+[node name="AccuracyLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Prev power accuracy: 0%   cadence accuracy: 0%"
+
+[node name="ButtonRow" type="HBoxContainer" parent="Root/MainPanel/MainVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StrikeButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "Power Strike
+2E | 7 dmg +0"
+
+[node name="GuardButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "Cadence Guard
+1E | 5 block +0"
+
+[node name="EndTurnButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+disabled = true
+text = "X
+End Turn disabled"
+
+[node name="ResetButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "Reset"
+
+[node name="Separator3" type="HSeparator" parent="Root/MainPanel/MainVBox"]
+layout_mode = 2
+
+[node name="LogLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Ready."
+autowrap_mode = 3
