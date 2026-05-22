@@ -24,12 +24,12 @@ grow_vertical = 2
 theme_override_constants/separation = 12
 
 [node name="SettingsPanel" type="PanelContainer" parent="Root"]
-custom_minimum_size = Vector2(260, 0)
+custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 
 [node name="SettingsVBox" type="VBoxContainer" parent="Root/SettingsPanel"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 4
 
 [node name="SettingsTitle" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
 layout_mode = 2
@@ -198,37 +198,37 @@ theme_override_constants/separation = 10
 
 [node name="PowerBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 42)
+custom_minimum_size = Vector2(130, 34)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 22
 text = "0 W"
 horizontal_alignment = 1
 
 [node name="WkgBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 42)
+custom_minimum_size = Vector2(130, 34)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 22
 text = "0.00 W/kg"
 horizontal_alignment = 1
 
 [node name="HRBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 42)
+custom_minimum_size = Vector2(130, 34)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 22
 text = "0 bpm"
 horizontal_alignment = 1
 
 [node name="CadenceBigLabel" type="Label" parent="Root/MainPanel/MainVBox/MetricsRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 42)
+custom_minimum_size = Vector2(130, 34)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 22
 text = "0 rpm"
 horizontal_alignment = 1
 
@@ -289,14 +289,14 @@ show_percentage = false
 
 [node name="RideChart" type="Control" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(720, 150)
+custom_minimum_size = Vector2(620, 110)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("2_chart")
 
 [node name="PowerChart" type="Control" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(720, 120)
+custom_minimum_size = Vector2(620, 82)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("2_chart")
@@ -304,7 +304,7 @@ mode = 1
 
 [node name="HRChart" type="Control" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(720, 120)
+custom_minimum_size = Vector2(620, 82)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("2_chart")
@@ -312,7 +312,7 @@ mode = 2
 
 [node name="CadenceChart" type="Control" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(720, 120)
+custom_minimum_size = Vector2(620, 82)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("2_chart")
@@ -333,9 +333,9 @@ text = "Recovery: 2.0 W/kg ceiling"
 
 [node name="TimerLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
-theme_override_font_sizes/font_size = 34
+theme_override_font_sizes/font_size = 24
 text = "Workout not started."
 horizontal_alignment = 1
 
@@ -375,42 +375,42 @@ text = "Prev power accuracy: 0%   cadence accuracy: 0%"
 
 [node name="ButtonRow" type="HBoxContainer" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 8
 
 [node name="StrikeButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 92)
+custom_minimum_size = Vector2(0, 68)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 14
 text = "Power Strike
 2E | 7 dmg +0"
 
 [node name="GuardButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 92)
+custom_minimum_size = Vector2(0, 68)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 14
 text = "Cadence Guard
 1E | 5 block +0"
 
 [node name="EndTurnButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 92)
+custom_minimum_size = Vector2(0, 68)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 14
 disabled = true
 text = "X
 End Turn disabled"
 
 [node name="ResetButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 92)
+custom_minimum_size = Vector2(0, 68)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 14
 text = "Reset"
 
 [node name="Separator3" type="HSeparator" parent="Root/MainPanel/MainVBox"]
