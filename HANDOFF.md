@@ -81,8 +81,10 @@ This is intentionally generic. Public cycling warmup guidance commonly emphasize
   - Gains bonus block if recovery-phase cadence accuracy is high.
 - Player is expected to stay under a recovery ceiling.
 - Current recovery ceiling is 2.0 W/kg.
-- Player turn is currently timed at 60 seconds for testability.
+- Player turn is currently timed at 120 seconds for testability.
 - Recovery also displays HR guidance: stay below the configured Zone 3 lower bound.
+- A future HIIT recovery gate is called out in the UI: end recovery when HR drops to 65% of max HR instead of relying on a fixed timer.
+- `End Turn` is intentionally disabled in this iteration. Recovery advances by timer only so the loop can test real rest duration before the next power interval.
 
 ### Enemy phase: Power Interval
 
@@ -130,7 +132,7 @@ The common default uses `220 - age` for max HR and zone lower bounds at 50/60/70
 Current phase targets:
 
 - Warmup: power target ramps from 40% FTP to 70% FTP, HR target ramps from Zone 2 lower bound toward Zone 3 lower bound, cadence target is 85 rpm.
-- Recovery/card play: power target is 55% FTP, HR target is below the Zone 3 lower bound, cadence target is 80 rpm.
+- Recovery/card play: 120 second timer, power target is 55% FTP, HR target is below the Zone 3 lower bound, cadence target is 80 rpm.
 - Power interval: power target is 120% FTP, HR target is the Zone 4 lower bound, cadence target is 100 rpm.
 
 The chart target lines change by phase segment instead of drawing one global target line across the whole session. The `Ride View` is inspired by workout dashboards such as Zwift/TrainerRoad: big current outputs first, full workout blocks underneath, then detailed metric charts.
@@ -197,7 +199,8 @@ Do not fold this branch into broader engine architecture until the loop has been
 
 ## Open Questions
 
-- Is 60 seconds the right first recovery/card-play turn length?
+- Is 120 seconds the right first recovery/card-play turn length?
+- When real HR data is available, should recovery end automatically at 65% max HR or require both timer and HR threshold?
 - Is 30 seconds the right first interval length for the power target?
 - Should power targets be based on FTP percentage, W/kg, or both? Current test uses FTP for target power and W/kg for cross-rider display/reward margin.
 - Should recovery compliance eventually be based on HR drop instead of a fixed timer?

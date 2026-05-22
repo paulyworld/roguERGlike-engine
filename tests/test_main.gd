@@ -18,7 +18,8 @@ const RECOVERY_POWER_PCT_FTP := 0.55
 const INTERVAL_POWER_PCT_FTP := 1.20
 const RECOVERY_CADENCE_RPM := 80
 const INTERVAL_CADENCE_RPM := 100
-const PLAYER_TURN_DURATION_S := 60.0
+const PLAYER_TURN_DURATION_S := 120.0
+const FUTURE_RECOVERY_TARGET_MAX_HR_RATIO := 0.65
 const INTERVAL_DURATION_S := 30.0
 const PLAYER_MAX_HP := 20
 const ENEMY_MAX_HP := 30
@@ -112,7 +113,6 @@ func _ready() -> void:
 	start_button.pressed.connect(_start_workout)
 	strike_button.pressed.connect(_play_power_strike)
 	guard_button.pressed.connect(_play_cadence_guard)
-	end_turn_button.pressed.connect(_start_enemy_interval)
 	reset_button.pressed.connect(_reset_combat)
 	formula_button.pressed.connect(_apply_common_hr_formula)
 	_connect_settings_inputs()
@@ -162,8 +162,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_ENTER:
 			if _phase == Phase.SETUP or _combat_over:
 				_start_workout()
-			else:
-				_start_enemy_interval()
 		elif event.keycode == KEY_R:
 			_reset_combat()
 
@@ -568,6 +566,7 @@ func _configure_chart() -> void:
 			_zone_bounds(),
 			_recovery_target_power_w(),
 			_interval_target_power_w(),
+			PLAYER_TURN_DURATION_S,
 			_warmup_duration_s,
 			_warmup_start_power_w(),
 			_warmup_end_power_w(),
@@ -584,6 +583,31 @@ func _configure_chart() -> void:
 func _add_chart_sample() -> void:
 	for chart in charts:
 		chart.call("add_sample", _session_time_s, _current_power, _current_cadence, _current_hr, int(_phase))
+
+
+func _format_seconds(time_s: float) -> String:
+	var total_seconds: int = max(0, roundi(time_s))
+	return "%d:%02d" % [int(total_seconds / 60), total_seconds % 60]
+
+
+func _refresh_card_buttons() -> void:
+	var strike_bonus_ready: bool = _last_interval_power_accuracy >= 1.0
+	var strike_bonus: int = POWER_STRIKE_BONUS_DAMAGE if strike_bonus_ready else 0
+	strike_button.text = "Power Strike\n%dE | %d dmg +%d\nPower hit: %d%%" % [
+		POWER_STRIKE_COST,
+		POWER_STRIKE_DAMAGE,
+		strike_bonus,
+		roundi(_last_interval_power_accuracy * 100.0),
+	]
+	var guard_accuracy: float = _average_turn_cadence_accuracy()
+	var guard_bonus: int = CADENCE_GUARD_BONUS_BLOCK if guard_accuracy >= 0.9 else 0
+	guard_button.text = "Cadence Guard\n%dE | %d block +%d\nCadence: %d%%" % [
+		CADENCE_GUARD_COST,
+		CADENCE_GUARD_BLOCK,
+		guard_bonus,
+		roundi(guard_accuracy * 100.0),
+	]
+	end_turn_button.text = "X\nEnd Turn disabled\nTimer controls recovery"
 
 
 func _render() -> void:
@@ -635,6 +659,7 @@ func _render() -> void:
 			RECOVERY_CADENCE_RPM,
 			_recovery_state(),
 		]
+		target_label.text += " | Future HIIT recovery gate: HR <= %d bpm (65%% max HR)" % roundi(float(_max_hr) * FUTURE_RECOVERY_TARGET_MAX_HR_RATIO)
 		reward_label.text = "Cards: Power Strike %dE (%d + %d if prior power hit); Cadence Guard %dE (%d + %d if cadence accurate)" % [
 			POWER_STRIKE_COST,
 			POWER_STRIKE_DAMAGE,
@@ -663,21 +688,22 @@ func _render() -> void:
 			_interval_reward_text(_peak_interval_wkg),
 		]
 	_render_timer_only()
+	_refresh_card_buttons()
 	start_button.disabled = _phase != Phase.SETUP and not _combat_over
 	strike_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN or _energy < POWER_STRIKE_COST
 	guard_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN or _energy < CADENCE_GUARD_COST
-	end_turn_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN
+	end_turn_button.disabled = true
 
 
 func _render_timer_only() -> void:
 	if _phase == Phase.SETUP:
 		timer_label.text = "Workout not started."
 	elif _phase == Phase.WARMUP:
-		timer_label.text = "Warmup time left: %.1fs" % _warmup_time_left
+		timer_label.text = "Warmup: %s" % _format_seconds(_warmup_time_left)
 	elif _phase == Phase.PLAYER_TURN:
-		timer_label.text = "Recovery/card timer: %.1fs" % _player_time_left
+		timer_label.text = "Recovery: %s" % _format_seconds(_player_time_left)
 	else:
-		timer_label.text = "Power interval time left: %.1fs" % _interval_time_left
+		timer_label.text = "Power: %s" % _format_seconds(_interval_time_left)
 
 
 func _on_connection_changed(connected: bool) -> void:

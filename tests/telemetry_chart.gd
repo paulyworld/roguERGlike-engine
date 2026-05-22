@@ -16,6 +16,7 @@ var _weight_kg := 75.0
 var _hr_zone_bounds: Array[int] = [90, 108, 126, 144, 162]
 var _recovery_target_power_w := 140.0
 var _interval_target_power_w := 300.0
+var _recovery_duration_s := 120.0
 var _warmup_duration_s := 600.0
 var _warmup_start_power_w := 100.0
 var _warmup_end_power_w := 175.0
@@ -34,6 +35,7 @@ func configure(
 	hr_zone_bounds: Array[int],
 	recovery_target_power_w: float,
 	interval_target_power_w: float,
+	recovery_duration_s: float,
 	warmup_duration_s: float,
 	warmup_start_power_w: float,
 	warmup_end_power_w: float,
@@ -50,6 +52,7 @@ func configure(
 	_hr_zone_bounds = hr_zone_bounds.duplicate()
 	_recovery_target_power_w = recovery_target_power_w
 	_interval_target_power_w = interval_target_power_w
+	_recovery_duration_s = recovery_duration_s
 	_warmup_duration_s = warmup_duration_s
 	_warmup_start_power_w = warmup_start_power_w
 	_warmup_end_power_w = warmup_end_power_w
@@ -173,7 +176,7 @@ func _draw_workout_blocks(plot: Rect2) -> void:
 	var t: float = warmup_end
 	var phase := 0
 	while t < TOTAL_WORKOUT_S:
-		var duration: float = 60.0 if phase == 0 else 30.0
+		var duration: float = _recovery_duration_s if phase == 0 else 30.0
 		var end_t: float = min(t + duration, TOTAL_WORKOUT_S)
 		var x1: float = _x_for_time(plot, t)
 		var x2: float = _x_for_time(plot, end_t)
@@ -234,7 +237,7 @@ func _draw_phase_targets(
 	var t: float = warmup_end
 	var phase := 0
 	while t < TOTAL_WORKOUT_S:
-		var duration: float = 60.0 if phase == 0 else 30.0
+		var duration: float = _recovery_duration_s if phase == 0 else 30.0
 		var end_t: float = min(t + duration, TOTAL_WORKOUT_S)
 		var target: float = recovery_target if phase == 0 else interval_target
 		var y: float = _y_for_value(plot, target, max_value)

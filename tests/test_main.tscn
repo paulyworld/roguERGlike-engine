@@ -333,8 +333,11 @@ text = "Recovery: 2.0 W/kg ceiling"
 
 [node name="TimerLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-text = "Recovery/card timer: 60.0s"
+theme_override_font_sizes/font_size = 34
+text = "Workout not started."
+horizontal_alignment = 1
 
 [node name="RewardLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
@@ -372,30 +375,42 @@ text = "Prev power accuracy: 0%   cadence accuracy: 0%"
 
 [node name="ButtonRow" type="HBoxContainer" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 12
 
 [node name="StrikeButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Power Strike"
+theme_override_font_sizes/font_size = 18
+text = "Power Strike
+2E | 7 dmg +0"
 
 [node name="GuardButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Cadence Guard"
+theme_override_font_sizes/font_size = 18
+text = "Cadence Guard
+1E | 5 block +0"
 
 [node name="EndTurnButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "End Turn"
+theme_override_font_sizes/font_size = 18
+disabled = true
+text = "X
+End Turn disabled"
 
 [node name="ResetButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
 text = "Reset"
 
 [node name="Separator3" type="HSeparator" parent="Root/MainPanel/MainVBox"]
