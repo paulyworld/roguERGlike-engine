@@ -2,7 +2,9 @@ extends Control
 
 enum ChartMode { RIDE_VIEW, POWER, HEART_RATE, CADENCE }
 
-const TOTAL_WORKOUT_S := 20.0 * 60.0
+const WORKOUT_HIIT_ENCOUNTER := 0
+const WORKOUT_RAMP_POWER_TEST := 1
+const DEFAULT_TOTAL_WORKOUT_S := 20.0 * 60.0
 const PLOT_PAD_LEFT := 42.0
 const PLOT_PAD_RIGHT := 12.0
 const PLOT_PAD_TOP := 16.0
@@ -11,6 +13,8 @@ const PLOT_PAD_BOTTOM := 24.0
 @export var mode: ChartMode = ChartMode.RIDE_VIEW
 
 var _samples: Array[Dictionary] = []
+var _workout_kind := WORKOUT_HIIT_ENCOUNTER
+var _total_workout_s := DEFAULT_TOTAL_WORKOUT_S
 var _max_hr := 180
 var _weight_kg := 75.0
 var _hr_zone_bounds: Array[int] = [90, 108, 126, 144, 162]
@@ -27,9 +31,15 @@ var _warmup_end_hr_bpm := 126.0
 var _recovery_target_cadence_rpm := 80.0
 var _interval_target_cadence_rpm := 100.0
 var _warmup_target_cadence_rpm := 85.0
+var _ramp_start_power_w := 125.0
+var _ramp_peak_power_w := 300.0
+var _ramp_start_cadence_rpm := 80.0
+var _ramp_peak_cadence_rpm := 100.0
 
 
 func configure(
+	workout_kind: int,
+	total_workout_s: float,
 	weight_kg: float,
 	max_hr: int,
 	hr_zone_bounds: Array[int],
@@ -45,8 +55,14 @@ func configure(
 	warmup_end_hr_bpm: float,
 	recovery_target_cadence_rpm: float,
 	interval_target_cadence_rpm: float,
-	warmup_target_cadence_rpm: float
+	warmup_target_cadence_rpm: float,
+	ramp_start_power_w: float,
+	ramp_peak_power_w: float,
+	ramp_start_cadence_rpm: float,
+	ramp_peak_cadence_rpm: float
 ) -> void:
+	_workout_kind = workout_kind
+	_total_workout_s = max(300.0, total_workout_s)
 	_weight_kg = weight_kg
 	_max_hr = max_hr
 	_hr_zone_bounds = hr_zone_bounds.duplicate()
@@ -63,6 +79,10 @@ func configure(
 	_recovery_target_cadence_rpm = recovery_target_cadence_rpm
 	_interval_target_cadence_rpm = interval_target_cadence_rpm
 	_warmup_target_cadence_rpm = warmup_target_cadence_rpm
+	_ramp_start_power_w = ramp_start_power_w
+	_ramp_peak_power_w = ramp_peak_power_w
+	_ramp_start_cadence_rpm = ramp_start_cadence_rpm
+	_ramp_peak_cadence_rpm = ramp_peak_cadence_rpm
 	queue_redraw()
 
 
@@ -79,7 +99,7 @@ func add_sample(time_s: float, power: int, cadence: int, hr: int, phase: int) ->
 		"hr": hr,
 		"phase": phase,
 	})
-	while not _samples.is_empty() and float(_samples[0]["time"]) < time_s - TOTAL_WORKOUT_S:
+	while not _samples.is_empty() and float(_samples[0]["time"]) < time_s - _total_workout_s:
 		_samples.pop_front()
 	queue_redraw()
 
@@ -126,17 +146,17 @@ func _time_min() -> float:
 
 
 func _time_max() -> float:
-	return TOTAL_WORKOUT_S
+	return _total_workout_s
 
 
 func _elapsed_time() -> float:
 	if _samples.is_empty():
 		return 0.0
-	return clamp(float(_samples[-1]["time"]), 0.0, TOTAL_WORKOUT_S)
+	return clamp(float(_samples[-1]["time"]), 0.0, _total_workout_s)
 
 
 func _x_for_time(plot: Rect2, time_s: float) -> float:
-	return plot.position.x + clamp(time_s / TOTAL_WORKOUT_S, 0.0, 1.0) * plot.size.x
+	return plot.position.x + clamp(time_s / _total_workout_s, 0.0, 1.0) * plot.size.x
 
 
 func _y_for_value(plot: Rect2, value: float, max_value: float) -> float:
@@ -144,7 +164,7 @@ func _y_for_value(plot: Rect2, value: float, max_value: float) -> float:
 
 
 func _power_max() -> float:
-	var max_power: float = max(max(_recovery_target_power_w, _interval_target_power_w) * 1.35, 400.0)
+	var max_power: float = max(max(max(_recovery_target_power_w, _interval_target_power_w), _ramp_peak_power_w) * 1.35, 400.0)
 	for sample in _samples:
 		max_power = max(max_power, float(sample["power"]) * 1.1)
 	return max_power
@@ -160,7 +180,13 @@ func _draw_grid(plot: Rect2) -> void:
 
 
 func _draw_workout_blocks(plot: Rect2) -> void:
-	var warmup_end: float = min(_warmup_duration_s, TOTAL_WORKOUT_S)
+	if _workout_kind == WORKOUT_RAMP_POWER_TEST:
+		draw_rect(plot, Color(0.08, 0.18, 0.30, 0.34), true)
+		var midpoint := _x_for_time(plot, _total_workout_s * 0.5)
+		draw_line(Vector2(midpoint, plot.position.y), Vector2(midpoint, plot.end.y), Color(0.6, 0.6, 0.7, 0.45), 1.0)
+		return
+
+	var warmup_end: float = min(_warmup_duration_s, _total_workout_s)
 	if warmup_end > 0.0:
 		draw_rect(
 			Rect2(
@@ -175,12 +201,16 @@ func _draw_workout_blocks(plot: Rect2) -> void:
 
 	var t: float = warmup_end
 	var phase := 0
-	while t < TOTAL_WORKOUT_S:
+	var first_power_block := true
+	while t < _total_workout_s:
 		var duration: float = _recovery_duration_s if phase == 0 else 30.0
-		var end_t: float = min(t + duration, TOTAL_WORKOUT_S)
+		var end_t: float = min(t + duration, _total_workout_s)
 		var x1: float = _x_for_time(plot, t)
 		var x2: float = _x_for_time(plot, end_t)
 		var color: Color = Color(0.10, 0.26, 0.13, 0.30) if phase == 0 else Color(0.37, 0.11, 0.07, 0.36)
+		if phase == 1 and first_power_block:
+			color = Color(0.22, 0.18, 0.05, 0.38)
+			first_power_block = false
 		draw_rect(Rect2(x1, plot.position.y, max(1.0, x2 - x1), plot.size.y), color, true)
 		t = end_t
 		phase = 1 - phase
@@ -194,7 +224,7 @@ func _draw_ride_view(plot: Rect2) -> void:
 	_draw_metric_chart(plot, "power", Color(0.95, 0.35, 0.22), _power_max(), true)
 	_draw_metric_chart(plot, "hr", Color(0.95, 0.2, 0.55), float(max(_max_hr, 120)), true)
 	_draw_metric_chart(plot, "cadence", Color(0.25, 0.72, 1.0), 150.0, true)
-	_draw_title(plot, "Ride View / 20 min workout")
+	_draw_title(plot, "Ride View / %s workout" % _format_seconds(_total_workout_s))
 
 
 func _draw_metric_chart(
@@ -225,7 +255,11 @@ func _draw_phase_targets(
 	max_value: float,
 	color: Color
 ) -> void:
-	var warmup_end: float = min(_warmup_duration_s, TOTAL_WORKOUT_S)
+	if _workout_kind == WORKOUT_RAMP_POWER_TEST:
+		_draw_ramp_target_curve(plot, warmup_start_target, warmup_end_target, max_value, color)
+		return
+
+	var warmup_end: float = min(_warmup_duration_s, _total_workout_s)
 	if warmup_end > 0.0:
 		_draw_dotted_line(
 			Vector2(_x_for_time(plot, 0.0), _y_for_value(plot, warmup_start_target, max_value)),
@@ -236,14 +270,39 @@ func _draw_phase_targets(
 
 	var t: float = warmup_end
 	var phase := 0
-	while t < TOTAL_WORKOUT_S:
+	while t < _total_workout_s:
 		var duration: float = _recovery_duration_s if phase == 0 else 30.0
-		var end_t: float = min(t + duration, TOTAL_WORKOUT_S)
+		var end_t: float = min(t + duration, _total_workout_s)
 		var target: float = recovery_target if phase == 0 else interval_target
 		var y: float = _y_for_value(plot, target, max_value)
 		_draw_dotted_line(Vector2(_x_for_time(plot, t), y), Vector2(_x_for_time(plot, end_t), y), color, 2.0)
 		t = end_t
 		phase = 1 - phase
+
+
+func _draw_ramp_target_curve(plot: Rect2, _unused_start: float, _unused_end: float, max_value: float, color: Color) -> void:
+	var points := PackedVector2Array()
+	var steps := 32
+	for i in range(steps + 1):
+		var t := _total_workout_s * float(i) / float(steps)
+		points.append(Vector2(_x_for_time(plot, t), _y_for_value(plot, _ramp_target_for_mode(max_value, t), max_value)))
+	if points.size() >= 2:
+		draw_polyline(points, color, 2.0)
+
+
+func _ramp_target_for_mode(max_value: float, time_s: float) -> float:
+	if is_equal_approx(max_value, 150.0):
+		return _ramp_curve_value(_ramp_start_cadence_rpm, _ramp_peak_cadence_rpm, time_s)
+	if max_value <= float(max(_max_hr, 120)):
+		return _ramp_curve_value(_warmup_start_hr_bpm, _interval_target_hr_bpm, time_s)
+	return _ramp_curve_value(_ramp_start_power_w, _ramp_peak_power_w, time_s)
+
+
+func _ramp_curve_value(start_value: float, peak_value: float, time_s: float) -> float:
+	var progress: float = clamp(time_s / max(_total_workout_s, 1.0), 0.0, 1.0)
+	if progress <= 0.5:
+		return lerpf(start_value, peak_value, progress * 2.0)
+	return lerpf(peak_value, start_value, (progress - 0.5) * 2.0)
 
 
 func _draw_hr_zones(plot: Rect2, hr_max: float) -> void:
@@ -282,12 +341,22 @@ func _draw_title(plot: Rect2, text: String) -> void:
 
 func _draw_footer(plot: Rect2) -> void:
 	var font := get_theme_default_font()
+	var text := "Timeline: %s; " % _format_seconds(_total_workout_s)
+	if _workout_kind == WORKOUT_RAMP_POWER_TEST:
+		text += "blue ramp test, target rises to midpoint then falls; distance pending sidecar events"
+	else:
+		text += "blue warmup, yellow first power-up, green recovery/card play, red power interval"
 	font.draw_string(
 		get_canvas_item(),
 		Vector2(plot.position.x, plot.end.y + 18.0),
-		"Timeline: 20:00; blue warmup ramp, green recovery/card play, red power interval; distance pending sidecar events",
+		text,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		12,
 		Color(0.72, 0.72, 0.72)
 	)
+
+
+func _format_seconds(time_s: float) -> String:
+	var total_seconds: int = max(0, roundi(time_s))
+	return "%d:%02d" % [int(total_seconds / 60), total_seconds % 60]

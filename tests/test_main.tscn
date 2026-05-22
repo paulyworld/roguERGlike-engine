@@ -36,6 +36,14 @@ layout_mode = 2
 text = "Rider Settings"
 horizontal_alignment = 1
 
+[node name="WorkoutLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Encounter / workout"
+
+[node name="WorkoutOption" type="OptionButton" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
 [node name="WeightLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
 layout_mode = 2
 text = "Weight (kg)"
@@ -58,6 +66,17 @@ layout_mode = 2
 min_value = 50.0
 max_value = 600.0
 value = 250.0
+
+[node name="WorkoutLengthLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Workout length (minutes)"
+
+[node name="WorkoutLengthSpin" type="SpinBox" parent="Root/SettingsPanel/SettingsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 5.0
+max_value = 90.0
+value = 20.0
 
 [node name="WarmupLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
 layout_mode = 2

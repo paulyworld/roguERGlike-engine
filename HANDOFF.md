@@ -29,10 +29,11 @@ That note argues for proving a playable loop before building more framework: one
 
 ## What This Branch Implements
 
-The engine test scene has been changed from a passive sidecar telemetry display into a tiny HIIT encounter prototype:
+The engine test scene has been changed from a passive sidecar telemetry display into a tiny workout/encounter prototype with selectable profiles:
 
 ```text
-Setup -> Warmup Ramp -> Recovery / Card Play -> Power Interval -> Recovery / Card Play
+HIIT Encounter: Setup -> Warmup Ramp -> Power-Up Interval -> Recovery / Card Play -> Power Interval -> Recovery / Card Play
+Ramp Power Test: Setup -> Ramp Up -> Ramp Down
 ```
 
 Files changed on this branch:
@@ -48,6 +49,12 @@ The scene still uses the existing `EffortBridge` autoload and sidecar WebSocket 
 The MVP now starts in a setup state instead of immediately running combat.
 
 The player can enter rider stats, HR zones, FTP, and warmup length before pressing `Start Workout`. Pressing start clears the charts, starts the session clock, and begins a warmup ramp.
+
+The dashboard now includes:
+
+- Encounter/workout selector.
+- Overall workout length in minutes.
+- Warmup length in minutes for HIIT.
 
 Warmup defaults:
 
@@ -66,6 +73,13 @@ This is intentionally generic. Public cycling warmup guidance commonly emphasize
 - No enemy attack happens.
 - The target meters show warmup power, HR, and cadence.
 - The ride timeline shades the warmup block blue before the combat intervals begin.
+
+### Power-up phase: first interval after warmup
+
+- The first interval after warmup is a power-up interval, not an enemy attack interval.
+- It uses the same interval power/cadence targets as later power intervals.
+- It records sustained power accuracy for the first `Power Strike` modifier.
+- It does not apply enemy damage.
 
 ### Player phase: Recovery / Card Play
 
@@ -108,7 +122,8 @@ This deliberately avoids the earlier simultaneous health-race loop. Cards happen
 
 The test scene now includes a live chart with:
 
-- A `Ride View` timeline for the full 20 minute test workout.
+- A `Ride View` timeline for the selected workout length.
+- The chart timeline length follows the dashboard's workout-length control.
 - Separate detail charts for power, heart rate, and cadence to reduce visual crowding.
 - Time on the x-axis. Distance is still pending until distance events are exposed through the sidecar/engine bridge.
 - Background phase bands for recovery/card play vs power interval.
@@ -117,13 +132,16 @@ The test scene now includes a live chart with:
 - Large live readouts for watts, W/kg, HR, and cadence above the charts.
 - Prominent target meters for power, HR, and cadence showing actual vs target, delta, and color-coded target ratio.
 - ERG write support from Claude's trainer-control bridge is consumed when available. The MVP writes warmup/recovery/interval targets through `EffortBridge.set_target_power`.
+- Ramp Power Test writes a generated up/down ERG target curve across the full workout length.
 
 The left settings panel includes:
 
+- Encounter/workout selector: `HIIT Encounter` or `Ramp Power Test`.
+- Workout length in minutes. This drives the chart and generated workout curve length.
 - Weight in kg. This drives W/kg calculations.
 - FTP in watts. Recovery and interval power targets are derived from this.
 - Warmup length in minutes.
-- Start Workout button. This starts a fresh session and enters the warmup ramp.
+- Start Workout button. This starts a fresh session using the selected profile.
 - Age input plus an "Apply 220-age zones" button.
 - Max HR.
 - Manual lower bounds for HR Zones 1-5.
@@ -133,6 +151,7 @@ The common default uses `220 - age` for max HR and zone lower bounds at 50/60/70
 Current phase targets:
 
 - Warmup: power target ramps from 40% FTP to 70% FTP, HR target ramps from Zone 2 lower bound toward Zone 3 lower bound, cadence target is 85 rpm.
+- Ramp Power Test: power target ramps from 50% FTP to 120% FTP, then back to 50% FTP across the workout; cadence target ramps from 80 rpm to 100 rpm and back.
 - Recovery/card play: 120 second timer, power target is 55% FTP, HR target is below the Zone 3 lower bound, cadence target is 80 rpm.
 - Power interval: power target is 120% FTP, HR target is the Zone 4 lower bound, cadence target is 100 rpm.
 
@@ -217,12 +236,13 @@ Playtest the current loop manually:
 
 1. Enter rider stats and press `Start Workout`.
 2. Ride through the warmup ramp.
-3. During recovery, spend turn energy on `Power Strike` and/or `Cadence Guard`.
-4. Wait for the recovery timer; any unspent energy expires when the power interval starts.
-5. During the 30 second interval, use the sidecar power slider or real bike output to hold the W/kg target after ramp grace.
-6. At interval end, the enemy attacks; queued block reduces damage.
-7. The next player turn receives a fixed 3 energy, with Power Strike bonus readiness based on interval accuracy.
-8. Observe whether fixed energy plus power/cadence card synergies feels better than variable energy rewards.
+3. Complete the first power-up interval; no enemy attack occurs here.
+4. During recovery, spend turn energy on `Power Strike` and/or `Cadence Guard`.
+5. Wait for the recovery timer; any unspent energy expires when the power interval starts.
+6. During later 30 second intervals, use the sidecar power slider or real bike output to hold the W/kg target after ramp grace.
+7. At interval end, the enemy attacks; queued block reduces damage.
+8. The next player turn receives a fixed 3 energy, with Power Strike bonus readiness based on interval accuracy.
+9. Observe whether fixed energy plus power/cadence card synergies feels better than variable energy rewards.
 
 After that, make only one design change at a time. The next likely change is exposing rider weight or target W/kg in the scene so balancing can be tested without code edits.
 
