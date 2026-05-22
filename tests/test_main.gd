@@ -6,7 +6,7 @@ extends Control
 ## enemy interval where the player tries to hit a W/kg target.
 
 enum Phase { SETUP, WARMUP, POWER_UP, PLAYER_TURN, ENEMY_INTERVAL, RAMP_WORKOUT, COMPLETE }
-enum WorkoutKind { HIIT_ENCOUNTER, RAMP_POWER_TEST }
+enum WorkoutKind { HIIT_ENCOUNTER, RAMP_POWER_TEST, ERG_STEP_TEST }
 
 const DEFAULT_AGE := 40
 const DEFAULT_WEIGHT_KG := 75.0
@@ -20,6 +20,11 @@ const RAMP_START_POWER_PCT_FTP := 0.50
 const RAMP_PEAK_POWER_PCT_FTP := 1.20
 const RAMP_START_CADENCE_RPM := 80.0
 const RAMP_PEAK_CADENCE_RPM := 100.0
+const ERG_STEP_START_POWER_PCT_FTP := 0.50
+const ERG_STEP_PEAK_POWER_PCT_FTP := 1.50
+const ERG_STEP_WATTS := 40.0
+const ERG_STEP_DURATION_S := 15.0
+const ERG_STEP_CADENCE_RPM := 90.0
 const RECOVERY_POWER_PCT_FTP := 0.55
 const INTERVAL_POWER_PCT_FTP := 1.20
 const RECOVERY_CADENCE_RPM := 80
@@ -209,6 +214,7 @@ func _configure_workout_options() -> void:
 	workout_option.clear()
 	workout_option.add_item("HIIT Encounter", WorkoutKind.HIIT_ENCOUNTER)
 	workout_option.add_item("Ramp Power Test", WorkoutKind.RAMP_POWER_TEST)
+	workout_option.add_item("ERG Step Test", WorkoutKind.ERG_STEP_TEST)
 
 
 func _connect_settings_inputs() -> void:
@@ -301,11 +307,13 @@ func _start_workout() -> void:
 	_chart_sample_time_s = 0.0
 	_trainer_target_update_time_s = 0.0
 	_combat_over = false
-	_phase = Phase.RAMP_WORKOUT if _workout_kind == WorkoutKind.RAMP_POWER_TEST else Phase.WARMUP
+	_phase = Phase.RAMP_WORKOUT if _is_control_test_workout() else Phase.WARMUP
 	for chart in charts:
 		chart.call("clear")
-	if _phase == Phase.RAMP_WORKOUT:
+	if _workout_kind == WorkoutKind.RAMP_POWER_TEST:
 		log_label.text = "Ramp power test started. ERG target ramps up and down across the full workout."
+	elif _workout_kind == WorkoutKind.ERG_STEP_TEST:
+		log_label.text = "ERG step test started. Target changes by 40 W every 15 seconds."
 	else:
 		log_label.text = "Warmup started. Ramp smoothly before the first power-up interval."
 	_add_chart_sample()
@@ -476,6 +484,37 @@ func _ramp_target_hr() -> float:
 	return _ramp_curve_value(float(z2_spin.value), float(z4_spin.value))
 
 
+func _erg_step_start_power_w() -> float:
+	return float(_ftp_w) * ERG_STEP_START_POWER_PCT_FTP
+
+
+func _erg_step_peak_power_w() -> float:
+	return float(_ftp_w) * ERG_STEP_PEAK_POWER_PCT_FTP
+
+
+func _erg_step_target_power_w() -> float:
+	return _erg_step_target_power_at(_session_time_s)
+
+
+func _erg_step_target_power_at(time_s: float) -> float:
+	var start_power := _erg_step_start_power_w()
+	var peak_power := _erg_step_peak_power_w()
+	var step_count: int = max(1, int(ceil((peak_power - start_power) / ERG_STEP_WATTS)))
+	var cycle_steps := step_count * 2
+	var step_index := int(floor(time_s / ERG_STEP_DURATION_S)) % cycle_steps
+	var offset_steps := step_index if step_index <= step_count else cycle_steps - step_index
+	return min(peak_power, start_power + float(offset_steps) * ERG_STEP_WATTS)
+
+
+func _erg_step_target_hr() -> float:
+	var ratio := inverse_lerp(_erg_step_start_power_w(), _erg_step_peak_power_w(), _erg_step_target_power_w())
+	return lerpf(float(z2_spin.value), float(z5_spin.value), clamp(ratio, 0.0, 1.0))
+
+
+func _is_control_test_workout() -> bool:
+	return _workout_kind == WorkoutKind.RAMP_POWER_TEST or _workout_kind == WorkoutKind.ERG_STEP_TEST
+
+
 # --- trainer-control writes ---------------------------------------------
 #
 # Drives the trainer's ERG resistance to match the current phase's intended
@@ -509,6 +548,10 @@ func _apply_ramp_target() -> void:
 	_apply_target_power(_ramp_target_power_w())
 
 
+func _apply_erg_step_target() -> void:
+	_apply_target_power(_erg_step_target_power_w())
+
+
 func _update_trainer_target_for_phase() -> void:
 	if _phase == Phase.WARMUP:
 		_apply_warmup_target()
@@ -517,7 +560,10 @@ func _update_trainer_target_for_phase() -> void:
 	elif _phase == Phase.POWER_UP or _phase == Phase.ENEMY_INTERVAL:
 		_apply_interval_target()
 	elif _phase == Phase.RAMP_WORKOUT:
-		_apply_ramp_target()
+		if _workout_kind == WorkoutKind.ERG_STEP_TEST:
+			_apply_erg_step_target()
+		else:
+			_apply_ramp_target()
 
 
 func _release_trainer() -> void:
@@ -592,6 +638,8 @@ func _active_power_target() -> float:
 	if _phase == Phase.SETUP:
 		return _warmup_start_power_w()
 	if _phase == Phase.RAMP_WORKOUT:
+		if _workout_kind == WorkoutKind.ERG_STEP_TEST:
+			return _erg_step_target_power_w()
 		return _ramp_target_power_w()
 	if _phase == Phase.WARMUP:
 		return _warmup_target_power_w()
@@ -604,6 +652,8 @@ func _active_hr_target() -> float:
 	if _phase == Phase.SETUP:
 		return float(z2_spin.value)
 	if _phase == Phase.RAMP_WORKOUT:
+		if _workout_kind == WorkoutKind.ERG_STEP_TEST:
+			return _erg_step_target_hr()
 		return _ramp_target_hr()
 	if _phase == Phase.WARMUP:
 		var elapsed: float = _warmup_duration_s - _warmup_time_left
@@ -616,6 +666,8 @@ func _active_hr_target() -> float:
 
 func _active_cadence_target() -> float:
 	if _phase == Phase.RAMP_WORKOUT:
+		if _workout_kind == WorkoutKind.ERG_STEP_TEST:
+			return ERG_STEP_CADENCE_RPM
 		return _ramp_target_cadence_rpm()
 	if _phase == Phase.SETUP or _phase == Phase.WARMUP:
 		return float(WARMUP_CADENCE_RPM)
@@ -776,7 +828,12 @@ func _configure_chart() -> void:
 			float(_ftp_w) * RAMP_START_POWER_PCT_FTP,
 			float(_ftp_w) * RAMP_PEAK_POWER_PCT_FTP,
 			RAMP_START_CADENCE_RPM,
-			RAMP_PEAK_CADENCE_RPM
+			RAMP_PEAK_CADENCE_RPM,
+			_erg_step_start_power_w(),
+			_erg_step_peak_power_w(),
+			ERG_STEP_WATTS,
+			ERG_STEP_DURATION_S,
+			ERG_STEP_CADENCE_RPM
 		)
 
 
@@ -824,12 +881,12 @@ func _render() -> void:
 	cadence_big_label.text = "%d rpm" % _current_cadence
 	_render_target_meters()
 	phase_label.text = "Phase: %s" % _phase_name()
-	if _workout_kind == WorkoutKind.RAMP_POWER_TEST:
-		enemy_label.text = "Workout: Ramp Power Test"
+	if _is_control_test_workout():
+		enemy_label.text = "Workout: %s" % ("ERG Step Test" if _workout_kind == WorkoutKind.ERG_STEP_TEST else "Ramp Power Test")
 		player_label.text = "Elapsed: %s / %s" % [_format_seconds(_session_time_s), _format_seconds(_workout_duration_s)]
-		energy_label.text = "ERG target: %.0f W" % _ramp_target_power_w()
-		block_label.text = "Target cadence: %.0f rpm" % _ramp_target_cadence_rpm()
-		accuracy_label.text = "Ramp position: %d%%" % roundi(_ramp_progress() * 100.0)
+		energy_label.text = "ERG target: %.0f W" % _active_power_target()
+		block_label.text = "Target cadence: %.0f rpm" % _active_cadence_target()
+		accuracy_label.text = "Step size: %.0f W / %.0fs" % [ERG_STEP_WATTS, ERG_STEP_DURATION_S] if _workout_kind == WorkoutKind.ERG_STEP_TEST else "Ramp position: %d%%" % roundi(_ramp_progress() * 100.0)
 	else:
 		enemy_label.text = "Enemy HP: %d / %d" % [_enemy_hp, ENEMY_MAX_HP]
 		player_label.text = "Player HP: %d / %d" % [_player_hp, PLAYER_MAX_HP]
@@ -841,7 +898,14 @@ func _render() -> void:
 		]
 	device_label.text = _trainer_status_text()
 	if _phase == Phase.SETUP:
-		if _workout_kind == WorkoutKind.RAMP_POWER_TEST:
+		if _workout_kind == WorkoutKind.ERG_STEP_TEST:
+			target_label.text = "Setup: ERG step test repeats 40 W steps every 15s up to 150%% FTP, then back down."
+			reward_label.text = "Step range: %.0f W to %.0f W. Repeats for %s." % [
+				_erg_step_start_power_w(),
+				_erg_step_peak_power_w(),
+				_format_seconds(_workout_duration_s),
+			]
+		elif _workout_kind == WorkoutKind.RAMP_POWER_TEST:
 			target_label.text = "Setup: ramp test fills %.0f min with power/cadence rising then falling." % (_workout_duration_s / 60.0)
 			reward_label.text = "Ramp target: %.0f-%.0f%% FTP, cadence %.0f-%.0f rpm." % [
 				RAMP_START_POWER_PCT_FTP * 100.0,
@@ -869,13 +933,17 @@ func _render() -> void:
 		]
 		reward_label.text = "Workout starts after warmup. Keep effort smooth; no cards during warmup."
 	elif _phase == Phase.RAMP_WORKOUT:
-		target_label.text = "Ramp targets: %.0f W (%.2f W/kg), HR %.0f, cadence %.0f rpm" % [
-			_ramp_target_power_w(),
-			_ramp_target_power_w() / _rider_weight_kg,
-			_ramp_target_hr(),
-			_ramp_target_cadence_rpm(),
+		target_label.text = "%s targets: %.0f W (%.2f W/kg), HR %.0f, cadence %.0f rpm" % [
+			"Step" if _workout_kind == WorkoutKind.ERG_STEP_TEST else "Ramp",
+			_active_power_target(),
+			_active_power_target() / _rider_weight_kg,
+			_active_hr_target(),
+			_active_cadence_target(),
 		]
-		reward_label.text = "ERG write test: generated ramp up/down across %s." % _format_seconds(_workout_duration_s)
+		reward_label.text = "ERG write test: %s across %s." % [
+			"40 W steps every 15s" if _workout_kind == WorkoutKind.ERG_STEP_TEST else "generated ramp up/down",
+			_format_seconds(_workout_duration_s),
+		]
 	elif _phase == Phase.POWER_UP:
 		var power_up_margin := _target_margin_wkg(_peak_interval_wkg)
 		target_label.text = "Power-up targets: %.0f W (%.2f W/kg), HR %d+, cadence %d rpm" % [

@@ -4,6 +4,7 @@ enum ChartMode { RIDE_VIEW, POWER, HEART_RATE, CADENCE }
 
 const WORKOUT_HIIT_ENCOUNTER := 0
 const WORKOUT_RAMP_POWER_TEST := 1
+const WORKOUT_ERG_STEP_TEST := 2
 const DEFAULT_TOTAL_WORKOUT_S := 20.0 * 60.0
 const PLOT_PAD_LEFT := 42.0
 const PLOT_PAD_RIGHT := 12.0
@@ -35,6 +36,11 @@ var _ramp_start_power_w := 125.0
 var _ramp_peak_power_w := 300.0
 var _ramp_start_cadence_rpm := 80.0
 var _ramp_peak_cadence_rpm := 100.0
+var _erg_step_start_power_w := 125.0
+var _erg_step_peak_power_w := 375.0
+var _erg_step_watts := 40.0
+var _erg_step_duration_s := 15.0
+var _erg_step_cadence_rpm := 90.0
 
 
 func configure(
@@ -59,7 +65,12 @@ func configure(
 	ramp_start_power_w: float,
 	ramp_peak_power_w: float,
 	ramp_start_cadence_rpm: float,
-	ramp_peak_cadence_rpm: float
+	ramp_peak_cadence_rpm: float,
+	erg_step_start_power_w: float,
+	erg_step_peak_power_w: float,
+	erg_step_watts: float,
+	erg_step_duration_s: float,
+	erg_step_cadence_rpm: float
 ) -> void:
 	_workout_kind = workout_kind
 	_total_workout_s = max(300.0, total_workout_s)
@@ -83,6 +94,11 @@ func configure(
 	_ramp_peak_power_w = ramp_peak_power_w
 	_ramp_start_cadence_rpm = ramp_start_cadence_rpm
 	_ramp_peak_cadence_rpm = ramp_peak_cadence_rpm
+	_erg_step_start_power_w = erg_step_start_power_w
+	_erg_step_peak_power_w = erg_step_peak_power_w
+	_erg_step_watts = erg_step_watts
+	_erg_step_duration_s = erg_step_duration_s
+	_erg_step_cadence_rpm = erg_step_cadence_rpm
 	queue_redraw()
 
 
@@ -164,7 +180,7 @@ func _y_for_value(plot: Rect2, value: float, max_value: float) -> float:
 
 
 func _power_max() -> float:
-	var max_power: float = max(max(max(_recovery_target_power_w, _interval_target_power_w), _ramp_peak_power_w) * 1.35, 400.0)
+	var max_power: float = max(max(max(max(_recovery_target_power_w, _interval_target_power_w), _ramp_peak_power_w), _erg_step_peak_power_w) * 1.35, 400.0)
 	for sample in _samples:
 		max_power = max(max_power, float(sample["power"]) * 1.1)
 	return max_power
@@ -180,10 +196,18 @@ func _draw_grid(plot: Rect2) -> void:
 
 
 func _draw_workout_blocks(plot: Rect2) -> void:
-	if _workout_kind == WORKOUT_RAMP_POWER_TEST:
-		draw_rect(plot, Color(0.08, 0.18, 0.30, 0.34), true)
-		var midpoint := _x_for_time(plot, _total_workout_s * 0.5)
-		draw_line(Vector2(midpoint, plot.position.y), Vector2(midpoint, plot.end.y), Color(0.6, 0.6, 0.7, 0.45), 1.0)
+	if _workout_kind == WORKOUT_RAMP_POWER_TEST or _workout_kind == WORKOUT_ERG_STEP_TEST:
+		var color := Color(0.08, 0.18, 0.30, 0.34) if _workout_kind == WORKOUT_RAMP_POWER_TEST else Color(0.25, 0.18, 0.05, 0.34)
+		draw_rect(plot, color, true)
+		if _workout_kind == WORKOUT_RAMP_POWER_TEST:
+			var midpoint := _x_for_time(plot, _total_workout_s * 0.5)
+			draw_line(Vector2(midpoint, plot.position.y), Vector2(midpoint, plot.end.y), Color(0.6, 0.6, 0.7, 0.45), 1.0)
+		else:
+			var t := 0.0
+			while t < _total_workout_s:
+				var x := _x_for_time(plot, t)
+				draw_line(Vector2(x, plot.position.y), Vector2(x, plot.end.y), Color(0.9, 0.75, 0.2, 0.20), 1.0)
+				t += _erg_step_duration_s
 		return
 
 	var warmup_end: float = min(_warmup_duration_s, _total_workout_s)
@@ -256,7 +280,10 @@ func _draw_phase_targets(
 	color: Color
 ) -> void:
 	if _workout_kind == WORKOUT_RAMP_POWER_TEST:
-		_draw_ramp_target_curve(plot, warmup_start_target, warmup_end_target, max_value, color)
+		_draw_ramp_target_curve(plot, max_value, color)
+		return
+	if _workout_kind == WORKOUT_ERG_STEP_TEST:
+		_draw_erg_step_target_curve(plot, max_value, color)
 		return
 
 	var warmup_end: float = min(_warmup_duration_s, _total_workout_s)
@@ -280,7 +307,7 @@ func _draw_phase_targets(
 		phase = 1 - phase
 
 
-func _draw_ramp_target_curve(plot: Rect2, _unused_start: float, _unused_end: float, max_value: float, color: Color) -> void:
+func _draw_ramp_target_curve(plot: Rect2, max_value: float, color: Color) -> void:
 	var points := PackedVector2Array()
 	var steps := 32
 	for i in range(steps + 1):
@@ -290,12 +317,43 @@ func _draw_ramp_target_curve(plot: Rect2, _unused_start: float, _unused_end: flo
 		draw_polyline(points, color, 2.0)
 
 
+func _draw_erg_step_target_curve(plot: Rect2, max_value: float, color: Color) -> void:
+	var t := 0.0
+	while t < _total_workout_s:
+		var end_t: float = min(t + _erg_step_duration_s, _total_workout_s)
+		var target := _erg_step_target_for_mode(max_value, t)
+		var y := _y_for_value(plot, target, max_value)
+		draw_line(Vector2(_x_for_time(plot, t), y), Vector2(_x_for_time(plot, end_t), y), color, 2.0)
+		if end_t < _total_workout_s:
+			var next_y := _y_for_value(plot, _erg_step_target_for_mode(max_value, end_t), max_value)
+			var x := _x_for_time(plot, end_t)
+			draw_line(Vector2(x, y), Vector2(x, next_y), color, 1.0)
+		t = end_t
+
+
 func _ramp_target_for_mode(max_value: float, time_s: float) -> float:
 	if is_equal_approx(max_value, 150.0):
 		return _ramp_curve_value(_ramp_start_cadence_rpm, _ramp_peak_cadence_rpm, time_s)
 	if max_value <= float(max(_max_hr, 120)):
 		return _ramp_curve_value(_warmup_start_hr_bpm, _interval_target_hr_bpm, time_s)
 	return _ramp_curve_value(_ramp_start_power_w, _ramp_peak_power_w, time_s)
+
+
+func _erg_step_target_for_mode(max_value: float, time_s: float) -> float:
+	if is_equal_approx(max_value, 150.0):
+		return _erg_step_cadence_rpm
+	if max_value <= float(max(_max_hr, 120)):
+		var ratio := inverse_lerp(_erg_step_start_power_w, _erg_step_peak_power_w, _erg_step_target_power_at(time_s))
+		return lerpf(_warmup_start_hr_bpm, float(_hr_zone_bounds[min(4, _hr_zone_bounds.size() - 1)]), clamp(ratio, 0.0, 1.0))
+	return _erg_step_target_power_at(time_s)
+
+
+func _erg_step_target_power_at(time_s: float) -> float:
+	var step_count: int = max(1, int(ceil((_erg_step_peak_power_w - _erg_step_start_power_w) / _erg_step_watts)))
+	var cycle_steps := step_count * 2
+	var step_index := int(floor(time_s / _erg_step_duration_s)) % cycle_steps
+	var offset_steps := step_index if step_index <= step_count else cycle_steps - step_index
+	return min(_erg_step_peak_power_w, _erg_step_start_power_w + float(offset_steps) * _erg_step_watts)
 
 
 func _ramp_curve_value(start_value: float, peak_value: float, time_s: float) -> float:
@@ -344,6 +402,8 @@ func _draw_footer(plot: Rect2) -> void:
 	var text := "Timeline: %s; " % _format_seconds(_total_workout_s)
 	if _workout_kind == WORKOUT_RAMP_POWER_TEST:
 		text += "blue ramp test, target rises to midpoint then falls; distance pending sidecar events"
+	elif _workout_kind == WORKOUT_ERG_STEP_TEST:
+		text += "gold ERG step test, 40 W target steps every 15s; distance pending sidecar events"
 	else:
 		text += "blue warmup, yellow first power-up, green recovery/card play, red power interval"
 	font.draw_string(

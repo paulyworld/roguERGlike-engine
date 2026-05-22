@@ -34,6 +34,7 @@ The engine test scene has been changed from a passive sidecar telemetry display 
 ```text
 HIIT Encounter: Setup -> Warmup Ramp -> Power-Up Interval -> Recovery / Card Play -> Power Interval -> Recovery / Card Play
 Ramp Power Test: Setup -> Ramp Up -> Ramp Down
+ERG Step Test: Setup -> 40 W Step Up/Down Repeats
 ```
 
 Files changed on this branch:
@@ -137,10 +138,11 @@ The test scene now includes a live chart with:
 - ERG writes require both `device_capabilities.target_power=true` and `control_acquired=true`.
 - In mock mode, launch sidecar with `--allow-trainer-control`; otherwise the WS server has no command handler and drops inbound `set_target_power` commands.
 - Ramp Power Test writes a generated up/down ERG target curve across the full workout length.
+- ERG Step Test writes discrete 40 W target changes every 15 seconds, climbing from 50% FTP to 150% FTP and then back down. The pattern repeats for as much of the selected workout length as fits.
 
 The left settings panel includes:
 
-- Encounter/workout selector: `HIIT Encounter` or `Ramp Power Test`.
+- Encounter/workout selector: `HIIT Encounter`, `Ramp Power Test`, or `ERG Step Test`.
 - Workout length in minutes. This drives the chart and generated workout curve length.
 - Weight in kg. This drives W/kg calculations.
 - FTP in watts. Recovery and interval power targets are derived from this.
@@ -156,6 +158,7 @@ Current phase targets:
 
 - Warmup: power target ramps from 40% FTP to 70% FTP, HR target ramps from Zone 2 lower bound toward Zone 3 lower bound, cadence target is 85 rpm.
 - Ramp Power Test: power target ramps from 50% FTP to 120% FTP, then back to 50% FTP across the workout; cadence target ramps from 80 rpm to 100 rpm and back.
+- ERG Step Test: power target starts at 50% FTP, increases by 40 W every 15 seconds until 150% FTP, then steps back down by 40 W every 15 seconds; cadence target is 90 rpm.
 - Recovery/card play: 120 second timer, power target is 55% FTP, HR target is below the Zone 3 lower bound, cadence target is 80 rpm.
 - Power interval: power target is 120% FTP, HR target is the Zone 4 lower bound, cadence target is 100 rpm.
 
