@@ -287,7 +287,17 @@ text = "Player HP: 20 / 20"
 [node name="EnergyLabel" type="Label" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Energy: 1   Strike cost: 1"
+text = "Turn energy: 3   next: 3"
+
+[node name="BlockLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Block queued: 0   enemy attack: 8"
+
+[node name="AccuracyLabel" type="Label" parent="Root/MainPanel/MainVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Prev power accuracy: 0%   cadence accuracy: 0%"
 
 [node name="ButtonRow" type="HBoxContainer" parent="Root/MainPanel/MainVBox"]
 layout_mode = 2
@@ -297,7 +307,13 @@ theme_override_constants/separation = 8
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Strike"
+text = "Power Strike"
+
+[node name="GuardButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cadence Guard"
 
 [node name="EndTurnButton" type="Button" parent="Root/MainPanel/MainVBox/ButtonRow"]
 unique_name_in_owner = true

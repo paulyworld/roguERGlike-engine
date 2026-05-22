@@ -18,15 +18,21 @@ const PLAYER_TURN_DURATION_S := 60.0
 const INTERVAL_DURATION_S := 30.0
 const PLAYER_MAX_HP := 20
 const ENEMY_MAX_HP := 30
-const STRIKE_COST := 1
-const STRIKE_DAMAGE := 6
-const ENEMY_ATTACK_DAMAGE := 5
+const POWER_STRIKE_COST := 2
+const POWER_STRIKE_DAMAGE := 7
+const POWER_STRIKE_BONUS_DAMAGE := 6
+const CADENCE_GUARD_COST := 1
+const CADENCE_GUARD_BLOCK := 5
+const CADENCE_GUARD_BONUS_BLOCK := 4
+const ENEMY_ATTACK_DAMAGE := 8
 const CHART_SAMPLE_PERIOD_S := 0.5
 
 var _phase := Phase.PLAYER_TURN
 var _player_hp := PLAYER_MAX_HP
 var _enemy_hp := ENEMY_MAX_HP
-var _energy := 1
+var _energy := 3
+var _next_turn_energy := 3
+var _pending_block := 0
 var _current_power := 0
 var _current_cadence := 0
 var _current_hr := 0
@@ -34,6 +40,10 @@ var _rider_weight_kg := DEFAULT_WEIGHT_KG
 var _ftp_w := DEFAULT_FTP_W
 var _max_hr := 220 - DEFAULT_AGE
 var _peak_interval_wkg := 0.0
+var _last_interval_peak_wkg := 0.0
+var _last_interval_power_accuracy := 0.0
+var _turn_cadence_accuracy := 0.0
+var _turn_cadence_samples := 0
 var _player_time_left := PLAYER_TURN_DURATION_S
 var _interval_time_left := INTERVAL_DURATION_S
 var _session_time_s := 0.0
@@ -51,6 +61,8 @@ var _combat_over := false
 @onready var enemy_label: Label = %EnemyLabel
 @onready var player_label: Label = %PlayerLabel
 @onready var energy_label: Label = %EnergyLabel
+@onready var block_label: Label = %BlockLabel
+@onready var accuracy_label: Label = %AccuracyLabel
 @onready var target_label: Label = %TargetLabel
 @onready var reward_label: Label = %RewardLabel
 @onready var timer_label: Label = %TimerLabel
@@ -72,6 +84,7 @@ var _combat_over := false
 @onready var z5_spin: SpinBox = %Z5Spin
 @onready var formula_button: Button = %FormulaButton
 @onready var strike_button: Button = %StrikeButton
+@onready var guard_button: Button = %GuardButton
 @onready var end_turn_button: Button = %EndTurnButton
 @onready var reset_button: Button = %ResetButton
 
@@ -82,7 +95,8 @@ func _ready() -> void:
 	EffortBridge.power_changed.connect(_on_power_changed)
 	EffortBridge.cadence_changed.connect(_on_cadence_changed)
 	EffortBridge.heart_rate_changed.connect(_on_heart_rate_changed)
-	strike_button.pressed.connect(_play_strike)
+	strike_button.pressed.connect(_play_power_strike)
+	guard_button.pressed.connect(_play_cadence_guard)
 	end_turn_button.pressed.connect(_start_enemy_interval)
 	reset_button.pressed.connect(_reset_combat)
 	formula_button.pressed.connect(_apply_common_hr_formula)
@@ -102,6 +116,7 @@ func _process(delta: float) -> void:
 		_add_chart_sample()
 
 	if _phase == Phase.PLAYER_TURN:
+		_sample_turn_cadence_accuracy()
 		_player_time_left = max(0.0, _player_time_left - delta)
 		if _player_time_left <= 0.0:
 			_start_enemy_interval()
@@ -120,7 +135,7 @@ func _process(delta: float) -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_SPACE:
-			_play_strike()
+			_play_power_strike()
 		elif event.keycode == KEY_ENTER:
 			_start_enemy_interval()
 		elif event.keycode == KEY_R:
@@ -151,16 +166,19 @@ func _on_settings_changed(_value: float) -> void:
 	_render()
 
 
-func _play_strike() -> void:
+func _play_power_strike() -> void:
 	if _combat_over or _phase != Phase.PLAYER_TURN:
 		return
-	if _energy < STRIKE_COST:
+	if _energy < POWER_STRIKE_COST:
 		log_label.text = "Not enough energy."
 		return
-	_energy -= STRIKE_COST
-	_enemy_hp = max(0, _enemy_hp - STRIKE_DAMAGE)
-	log_label.text = "Strike dealt %d damage." % STRIKE_DAMAGE
-	print("[hiit_mvp] strike enemy_hp=", _enemy_hp, " energy=", _energy)
+	_energy -= POWER_STRIKE_COST
+	var damage := POWER_STRIKE_DAMAGE
+	if _last_interval_power_accuracy >= 1.0:
+		damage += POWER_STRIKE_BONUS_DAMAGE
+	_enemy_hp = max(0, _enemy_hp - damage)
+	log_label.text = "Power Strike dealt %d damage." % damage
+	print("[hiit_mvp] power_strike enemy_hp=", _enemy_hp, " energy=", _energy)
 	if _enemy_hp == 0:
 		_combat_over = true
 		log_label.text = "Enemy defeated."
@@ -168,13 +186,31 @@ func _play_strike() -> void:
 	_render()
 
 
+func _play_cadence_guard() -> void:
+	if _combat_over or _phase != Phase.PLAYER_TURN:
+		return
+	if _energy < CADENCE_GUARD_COST:
+		log_label.text = "Not enough energy."
+		return
+	_energy -= CADENCE_GUARD_COST
+	var block := CADENCE_GUARD_BLOCK
+	if _turn_cadence_accuracy >= 0.9:
+		block += CADENCE_GUARD_BONUS_BLOCK
+	_pending_block += block
+	log_label.text = "Cadence Guard added %d block." % block
+	print("[hiit_mvp] cadence_guard block=", block, " pending_block=", _pending_block, " energy=", _energy)
+	_render()
+
+
 func _start_enemy_interval() -> void:
 	if _combat_over or _phase != Phase.PLAYER_TURN:
 		return
+	var expired_energy := _energy
+	_energy = 0
 	_phase = Phase.ENEMY_INTERVAL
 	_peak_interval_wkg = _current_wkg()
 	_interval_time_left = INTERVAL_DURATION_S
-	log_label.text = "Power interval started."
+	log_label.text = "Power interval started. %d unspent energy expired." % expired_energy
 	print("[hiit_mvp] interval_start target_wkg=", _interval_target_wkg())
 	_add_chart_sample()
 	_render()
@@ -182,23 +218,27 @@ func _start_enemy_interval() -> void:
 
 func _resolve_enemy_interval() -> void:
 	var energy_gain := _interval_energy_gain(_peak_interval_wkg)
-	if _peak_interval_wkg >= _interval_target_wkg():
-		_energy += energy_gain
-		log_label.text = "Target hit: +%d energy, enemy attack blocked." % energy_gain
-		print("[hiit_mvp] interval_success peak_wkg=", _peak_interval_wkg, " energy=", _energy)
-	else:
-		_energy += energy_gain
-		_player_hp = max(0, _player_hp - ENEMY_ATTACK_DAMAGE)
-		log_label.text = "Target missed: +%d energy, took %d damage." % [
-			energy_gain,
-			ENEMY_ATTACK_DAMAGE,
-		]
-		print("[hiit_mvp] interval_miss peak_wkg=", _peak_interval_wkg, " player_hp=", _player_hp)
-		if _player_hp == 0:
-			_combat_over = true
-			log_label.text += " Player defeated."
-			print("[hiit_mvp] defeat")
+	_next_turn_energy = energy_gain
+	_last_interval_peak_wkg = _peak_interval_wkg
+	_last_interval_power_accuracy = _interval_power_accuracy(_peak_interval_wkg)
+	var incoming := ENEMY_ATTACK_DAMAGE
+	var damage_taken: int = max(0, incoming - _pending_block)
+	_player_hp = max(0, _player_hp - damage_taken)
+	log_label.text = "Enemy attacked for %d. Blocked %d. Took %d. Next turn energy: %d." % [
+		incoming,
+		min(_pending_block, incoming),
+		damage_taken,
+		_next_turn_energy,
+	]
+	print("[hiit_mvp] interval_resolve peak_wkg=", _peak_interval_wkg, " damage_taken=", damage_taken, " next_energy=", _next_turn_energy)
+	_pending_block = 0
+	if _player_hp == 0:
+		_combat_over = true
+		log_label.text += " Player defeated."
+		print("[hiit_mvp] defeat")
+	_energy = _next_turn_energy
 	_phase = Phase.PLAYER_TURN
+	_reset_turn_cadence_tracking()
 	_player_time_left = PLAYER_TURN_DURATION_S
 	_interval_time_left = INTERVAL_DURATION_S
 	_add_chart_sample()
@@ -209,8 +249,13 @@ func _reset_combat() -> void:
 	_phase = Phase.PLAYER_TURN
 	_player_hp = PLAYER_MAX_HP
 	_enemy_hp = ENEMY_MAX_HP
-	_energy = 1
+	_energy = 3
+	_next_turn_energy = 3
+	_pending_block = 0
 	_peak_interval_wkg = 0.0
+	_last_interval_peak_wkg = 0.0
+	_last_interval_power_accuracy = 0.0
+	_reset_turn_cadence_tracking()
 	_player_time_left = PLAYER_TURN_DURATION_S
 	_interval_time_left = INTERVAL_DURATION_S
 	_session_time_s = 0.0
@@ -256,26 +301,53 @@ func _interval_target_hr() -> int:
 
 
 func _interval_energy_gain(peak_wkg: float) -> int:
-	var margin := _target_margin_wkg(peak_wkg)
-	if margin >= 1.0:
+	var accuracy := _interval_power_accuracy(peak_wkg)
+	if accuracy >= 1.30:
 		return 5
-	if margin >= 0.5:
+	if accuracy >= 1.15:
 		return 4
-	if margin >= 0.0:
+	if accuracy >= 1.0:
 		return 3
 	return 1
 
 
 func _interval_reward_text(peak_wkg: float) -> String:
-	var margin := _target_margin_wkg(peak_wkg)
+	var accuracy := _interval_power_accuracy(peak_wkg)
 	var energy_gain := _interval_energy_gain(peak_wkg)
-	if margin >= 1.0:
+	if accuracy >= 1.30:
 		return "Projected reward: +%d energy, strong over-target block" % energy_gain
-	if margin >= 0.5:
+	if accuracy >= 1.15:
 		return "Projected reward: +%d energy, clean over-target block" % energy_gain
-	if margin >= 0.0:
+	if accuracy >= 1.0:
 		return "Projected reward: +%d energy, block" % energy_gain
 	return "Projected reward: +%d energy, attack lands" % energy_gain
+
+
+func _interval_power_accuracy(peak_wkg: float) -> float:
+	return peak_wkg / max(_interval_target_wkg(), 0.01)
+
+
+func _current_cadence_accuracy() -> float:
+	if _current_cadence <= 0:
+		return 0.0
+	var diff: float = abs(float(_current_cadence - RECOVERY_CADENCE_RPM))
+	return clamp(1.0 - diff / 30.0, 0.0, 1.0)
+
+
+func _sample_turn_cadence_accuracy() -> void:
+	_turn_cadence_accuracy += _current_cadence_accuracy()
+	_turn_cadence_samples += 1
+
+
+func _average_turn_cadence_accuracy() -> float:
+	if _turn_cadence_samples <= 0:
+		return 0.0
+	return _turn_cadence_accuracy / float(_turn_cadence_samples)
+
+
+func _reset_turn_cadence_tracking() -> void:
+	_turn_cadence_accuracy = 0.0
+	_turn_cadence_samples = 0
 
 
 func _phase_name() -> String:
@@ -338,7 +410,12 @@ func _render() -> void:
 	phase_label.text = "Phase: %s" % _phase_name()
 	enemy_label.text = "Enemy HP: %d / %d" % [_enemy_hp, ENEMY_MAX_HP]
 	player_label.text = "Player HP: %d / %d" % [_player_hp, PLAYER_MAX_HP]
-	energy_label.text = "Energy: %d   Strike cost: %d" % [_energy, STRIKE_COST]
+	energy_label.text = "Turn energy: %d   next: %d" % [_energy, _next_turn_energy]
+	block_label.text = "Block queued: %d   enemy attack: %d" % [_pending_block, ENEMY_ATTACK_DAMAGE]
+	accuracy_label.text = "Prev power accuracy: %d%%   cadence accuracy: %d%%" % [
+		roundi(_last_interval_power_accuracy * 100.0),
+		roundi(_average_turn_cadence_accuracy() * 100.0),
+	]
 	if _phase == Phase.PLAYER_TURN:
 		target_label.text = "Recovery targets: %.0f W (%.2f W/kg), HR <%d, cadence %d rpm (%s)" % [
 			_recovery_target_power_w(),
@@ -347,7 +424,15 @@ func _render() -> void:
 			RECOVERY_CADENCE_RPM,
 			_recovery_state(),
 		]
-		reward_label.text = "Interval targets: %.0f W (%.2f W/kg), HR %d+, cadence %d rpm" % [
+		reward_label.text = "Cards: Power Strike %dE (%d + %d if prior power hit); Cadence Guard %dE (%d + %d if cadence accurate)" % [
+			POWER_STRIKE_COST,
+			POWER_STRIKE_DAMAGE,
+			POWER_STRIKE_BONUS_DAMAGE,
+			CADENCE_GUARD_COST,
+			CADENCE_GUARD_BLOCK,
+			CADENCE_GUARD_BONUS_BLOCK,
+		]
+		target_label.text += " | Next interval: %.0f W (%.2f W/kg), HR %d+, cadence %d rpm" % [
 			_interval_target_power_w(),
 			_interval_target_wkg(),
 			_interval_target_hr(),
@@ -367,7 +452,8 @@ func _render() -> void:
 			_interval_reward_text(_peak_interval_wkg),
 		]
 	_render_timer_only()
-	strike_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN or _energy < STRIKE_COST
+	strike_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN or _energy < POWER_STRIKE_COST
+	guard_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN or _energy < CADENCE_GUARD_COST
 	end_turn_button.disabled = _combat_over or _phase != Phase.PLAYER_TURN
 
 

@@ -46,9 +46,16 @@ The scene still uses the existing `EffortBridge` autoload and sidecar WebSocket 
 
 ### Player phase: Recovery / Card Play
 
-- Player can play `Strike`.
-- `Strike` costs 1 energy.
-- `Strike` deals 6 damage.
+- Player energy is turn-scoped. It expires when the player ends recovery/card play.
+- Power interval performance grants the next player turn's energy budget.
+- Player can play `Power Strike`.
+  - Costs 2 energy.
+  - Deals base damage.
+  - Gains bonus damage if the previous power interval hit target.
+- Player can play `Cadence Guard`.
+  - Costs 1 energy.
+  - Adds block that persists into the upcoming enemy power interval.
+  - Gains bonus block if recovery-phase cadence accuracy is high.
 - Player is expected to stay under a recovery ceiling.
 - Current recovery ceiling is 2.0 W/kg.
 - Player turn is currently timed at 60 seconds for testability.
@@ -63,10 +70,12 @@ The scene still uses the existing `EffortBridge` autoload and sidecar WebSocket 
 
 Resolution:
 
-- Target missed: gain 1 energy and take 5 damage.
-- Target hit: gain 3 energy and block the enemy attack.
-- Target exceeded by 0.5 W/kg: gain 4 energy and block.
-- Target exceeded by 1.0 W/kg: gain 5 energy and block.
+- Enemy makes a generic attack during its power interval.
+- Block from `Cadence Guard` reduces that attack.
+- Target missed: next turn starts with 1 energy.
+- Target hit: next turn starts with 3 energy.
+- Target exceeded by 15%: next turn starts with 4 energy.
+- Target exceeded by 30%: next turn starts with 5 energy.
 
 This deliberately avoids the earlier simultaneous health-race loop. Cards happen during recovery; high physical output happens during the enemy/power interval.
 
@@ -159,7 +168,7 @@ Do not fold this branch into broader engine architecture until the loop has been
 - Should power targets be based on FTP percentage, W/kg, or both? Current test uses FTP for target power and W/kg for cross-rider display/reward margin.
 - Should recovery compliance eventually be based on HR drop instead of a fixed timer?
 - Should recovery compliance matter mechanically, or only display feedback for now?
-- Should target hit trigger energy, block, card synergies, or some combination?
+- Should target hit trigger energy, block, card synergies, or some combination? Current test uses power for next-turn energy and Power Strike bonus; cadence for Cadence Guard bonus block.
 - Should distance be added to the chart once `distance` events flow through `EffortBridge`?
 - Should target cadence become a scoring input, or remain guidance only?
 - Should this remain in `engine/tests/`, or should the next iteration move into the private `game` repo as a vertical slice?
@@ -168,11 +177,12 @@ Do not fold this branch into broader engine architecture until the loop has been
 
 Playtest the current loop manually:
 
-1. During recovery, play `Strike` if energy is available.
-2. End turn.
-3. During the 30 second interval, use the sidecar power slider to exceed the W/kg target.
-4. Watch peak W/kg, target margin, and projected energy reward update live.
-5. Observe whether earning energy/block during the interval feels better than simultaneous card play and damage racing.
+1. During recovery, spend turn energy on `Power Strike` and/or `Cadence Guard`.
+2. End turn; any unspent energy expires.
+3. During the 30 second interval, use the sidecar power slider or real bike output to exceed the W/kg target.
+4. At interval end, the enemy attacks; queued block reduces damage.
+5. The next player turn receives a fresh energy budget based on interval power accuracy.
+6. Observe whether expiring energy plus power/cadence card synergies feels better than banked energy.
 
 After that, make only one design change at a time. The next likely change is exposing rider weight or target W/kg in the scene so balancing can be tested without code edits.
 
