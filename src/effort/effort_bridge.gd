@@ -33,6 +33,18 @@ signal device_capabilities_changed(
 signal control_acquired(kind: String, name: String)
 signal control_released(kind: String, name: String, reason: String)
 signal target_power_set(watts: int, accepted: bool, reason: String)
+signal cadence_bailout_engaged(
+	kind: String,
+	name: String,
+	pre_pause_target_watts: int,
+	bailout_after_s: float,
+)
+signal cadence_bailout_disengaged(
+	kind: String,
+	name: String,
+	restored_to_watts: int,
+	ramped_over_s: float,
+)
 signal connection_state_changed(connected: bool)
 
 const SIDECAR_URL := "ws://localhost:8421"
@@ -42,6 +54,12 @@ const SIDECAR_URL := "ws://localhost:8421"
 # being true. Set by the most recent `device_capabilities` event; reset to
 # false on `device_disconnected`.
 var supports_target_power: bool = false
+
+# Whether the sidecar's cadence bailout is currently engaged (rider stopped
+# pedalling at a meaningful target; trainer dropped to floor). Game UI can
+# use this to show a "PAUSED — start pedalling" overlay. Cleared on a
+# `cadence_bailout_disengaged` event and on `device_disconnected`.
+var is_cadence_paused: bool = false
 
 var _socket: WebSocketPeer
 var _connected := false
@@ -104,6 +122,7 @@ func _handle_packet(text: String) -> void:
 			device_connected.emit(str(event.data.kind), str(event.data.name))
 		"device_disconnected":
 			supports_target_power = false
+			is_cadence_paused = false
 			device_disconnected.emit(str(event.data.kind), str(event.data.name))
 		"device_capabilities":
 			supports_target_power = bool(event.data.get("target_power", false))
@@ -126,6 +145,22 @@ func _handle_packet(text: String) -> void:
 				int(event.data.watts),
 				bool(event.data.accepted),
 				str(event.data.get("reason", "")),
+			)
+		"cadence_bailout_engaged":
+			is_cadence_paused = true
+			cadence_bailout_engaged.emit(
+				str(event.data.kind),
+				str(event.data.name),
+				int(event.data.get("pre_pause_target_watts", 0)),
+				float(event.data.get("bailout_after_s", 0.0)),
+			)
+		"cadence_bailout_disengaged":
+			is_cadence_paused = false
+			cadence_bailout_disengaged.emit(
+				str(event.data.kind),
+				str(event.data.name),
+				int(event.data.get("restored_to_watts", 0)),
+				float(event.data.get("ramped_over_s", 0.0)),
 			)
 
 
