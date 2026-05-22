@@ -216,6 +216,61 @@ theme_override_font_sizes/font_size = 28
 text = "0 rpm"
 horizontal_alignment = 1
 
+[node name="MetersRow" type="HBoxContainer" parent="Root/MainPanel/MainVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PowerMeterBox" type="VBoxContainer" parent="Root/MainPanel/MainVBox/MetersRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="PowerMeterLabel" type="Label" parent="Root/MainPanel/MainVBox/MetersRow/PowerMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Power 0 / 0 W"
+horizontal_alignment = 1
+
+[node name="PowerMeter" type="ProgressBar" parent="Root/MainPanel/MainVBox/MetersRow/PowerMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 130.0
+show_percentage = false
+
+[node name="HRMeterBox" type="VBoxContainer" parent="Root/MainPanel/MainVBox/MetersRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="HRMeterLabel" type="Label" parent="Root/MainPanel/MainVBox/MetersRow/HRMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "HR 0 / 0 bpm"
+horizontal_alignment = 1
+
+[node name="HRMeter" type="ProgressBar" parent="Root/MainPanel/MainVBox/MetersRow/HRMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 130.0
+show_percentage = false
+
+[node name="CadenceMeterBox" type="VBoxContainer" parent="Root/MainPanel/MainVBox/MetersRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="CadenceMeterLabel" type="Label" parent="Root/MainPanel/MainVBox/MetersRow/CadenceMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Cadence 0 / 0 rpm"
+horizontal_alignment = 1
+
+[node name="CadenceMeter" type="ProgressBar" parent="Root/MainPanel/MainVBox/MetersRow/CadenceMeterBox"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 130.0
+show_percentage = false
+
 [node name="RideChart" type="Control" parent="Root/MainPanel/MainVBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(720, 150)

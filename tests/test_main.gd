@@ -57,6 +57,12 @@ var _combat_over := false
 @onready var wkg_big_label: Label = %WkgBigLabel
 @onready var hr_big_label: Label = %HRBigLabel
 @onready var cadence_big_label: Label = %CadenceBigLabel
+@onready var power_meter_label: Label = %PowerMeterLabel
+@onready var hr_meter_label: Label = %HRMeterLabel
+@onready var cadence_meter_label: Label = %CadenceMeterLabel
+@onready var power_meter: ProgressBar = %PowerMeter
+@onready var hr_meter: ProgressBar = %HRMeter
+@onready var cadence_meter: ProgressBar = %CadenceMeter
 @onready var phase_label: Label = %PhaseLabel
 @onready var enemy_label: Label = %EnemyLabel
 @onready var player_label: Label = %PlayerLabel
@@ -334,6 +340,101 @@ func _current_cadence_accuracy() -> float:
 	return clamp(1.0 - diff / 30.0, 0.0, 1.0)
 
 
+func _active_power_target() -> float:
+	if _phase == Phase.PLAYER_TURN:
+		return _recovery_target_power_w()
+	return _interval_target_power_w()
+
+
+func _active_hr_target() -> float:
+	if _phase == Phase.PLAYER_TURN:
+		return float(_recovery_target_hr())
+	return float(_interval_target_hr())
+
+
+func _active_cadence_target() -> float:
+	if _phase == Phase.PLAYER_TURN:
+		return float(RECOVERY_CADENCE_RPM)
+	return float(INTERVAL_CADENCE_RPM)
+
+
+func _target_ratio(actual: float, target: float) -> float:
+	return actual / max(target, 0.01)
+
+
+func _accuracy_color(ratio: float) -> Color:
+	if ratio >= 1.15:
+		return Color(0.30, 0.65, 1.0)
+	if ratio >= 1.0:
+		return Color(0.25, 0.90, 0.35)
+	if ratio >= 0.85:
+		return Color(1.0, 0.78, 0.25)
+	return Color(0.95, 0.25, 0.20)
+
+
+func _apply_meter_style(bar: ProgressBar, ratio: float) -> void:
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = _accuracy_color(ratio)
+	fill.corner_radius_top_left = 3
+	fill.corner_radius_top_right = 3
+	fill.corner_radius_bottom_left = 3
+	fill.corner_radius_bottom_right = 3
+	var background := StyleBoxFlat.new()
+	background.bg_color = Color(0.13, 0.13, 0.14)
+	background.corner_radius_top_left = 3
+	background.corner_radius_top_right = 3
+	background.corner_radius_bottom_left = 3
+	background.corner_radius_bottom_right = 3
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.add_theme_stylebox_override("background", background)
+
+
+func _render_meter(
+	label: Label,
+	bar: ProgressBar,
+	name: String,
+	actual: float,
+	target: float,
+	unit: String,
+	as_int := true
+) -> void:
+	var ratio := _target_ratio(actual, target)
+	var delta := actual - target
+	bar.value = clamp(ratio * 100.0, 0.0, 130.0)
+	_apply_meter_style(bar, ratio)
+	if as_int:
+		label.text = "%s  %.0f / %.0f %s  delta %+0.f" % [name, actual, target, unit, delta]
+	else:
+		label.text = "%s  %.2f / %.2f %s  delta %+.2f" % [name, actual, target, unit, delta]
+
+
+func _render_target_meters() -> void:
+	_render_meter(
+		power_meter_label,
+		power_meter,
+		"Power",
+		float(_current_power),
+		_active_power_target(),
+		"W"
+	)
+	_render_meter(
+		hr_meter_label,
+		hr_meter,
+		"HR",
+		float(_current_hr),
+		_active_hr_target(),
+		"bpm"
+	)
+	_render_meter(
+		cadence_meter_label,
+		cadence_meter,
+		"Cadence",
+		float(_current_cadence),
+		_active_cadence_target(),
+		"rpm"
+	)
+
+
 func _sample_turn_cadence_accuracy() -> void:
 	_turn_cadence_accuracy += _current_cadence_accuracy()
 	_turn_cadence_samples += 1
@@ -407,6 +508,7 @@ func _render() -> void:
 	wkg_big_label.text = "%.2f W/kg" % wkg
 	hr_big_label.text = "%d bpm" % _current_hr
 	cadence_big_label.text = "%d rpm" % _current_cadence
+	_render_target_meters()
 	phase_label.text = "Phase: %s" % _phase_name()
 	enemy_label.text = "Enemy HP: %d / %d" % [_enemy_hp, ENEMY_MAX_HP]
 	player_label.text = "Player HP: %d / %d" % [_player_hp, PLAYER_MAX_HP]

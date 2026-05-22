@@ -90,6 +90,7 @@ The test scene now includes a live chart with:
 - Dotted phase-specific target lines in each detail chart.
 - HR zone boundary lines in the heart-rate detail chart.
 - Large live readouts for watts, W/kg, HR, and cadence above the charts.
+- Prominent target meters for power, HR, and cadence showing actual vs target, delta, and color-coded target ratio.
 
 The left settings panel includes:
 
@@ -107,6 +108,13 @@ Current phase targets:
 - Power interval: power target is 120% FTP, HR target is the Zone 4 lower bound, cadence target is 100 rpm.
 
 The chart target lines change by phase segment instead of drawing one global target line across the whole session. The `Ride View` is inspired by workout dashboards such as Zwift/TrainerRoad: big current outputs first, full workout blocks underneath, then detailed metric charts.
+
+Target meter colors:
+
+- Red: well below target.
+- Yellow: near target.
+- Green: target met.
+- Blue: substantially over target.
 
 ## How To Run
 
