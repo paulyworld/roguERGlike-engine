@@ -77,6 +77,7 @@ This is intentionally generic. Public cycling warmup guidance commonly emphasize
 ### Power-up phase: first interval after warmup
 
 - The first interval after warmup is a power-up interval, not an enemy attack interval.
+- The warmup transitions directly into this power-up interval. There is no recovery/card phase between warmup and the first power target.
 - It uses the same interval power/cadence targets as later power intervals.
 - It records sustained power accuracy for the first `Power Strike` modifier.
 - It does not apply enemy damage.
@@ -132,6 +133,9 @@ The test scene now includes a live chart with:
 - Large live readouts for watts, W/kg, HR, and cadence above the charts.
 - Prominent target meters for power, HR, and cadence showing actual vs target, delta, and color-coded target ratio.
 - ERG write support from Claude's trainer-control bridge is consumed when available. The MVP writes warmup/recovery/interval targets through `EffortBridge.set_target_power`.
+- The MVP now displays trainer write state in the device row: target-power capability, control-acquired state, and the latest target-power acknowledgement.
+- ERG writes require both `device_capabilities.target_power=true` and `control_acquired=true`.
+- In mock mode, launch sidecar with `--allow-trainer-control`; otherwise the WS server has no command handler and drops inbound `set_target_power` commands.
 - Ramp Power Test writes a generated up/down ERG target curve across the full workout length.
 
 The left settings panel includes:
@@ -172,6 +176,12 @@ Start the sidecar mock mode in one terminal:
 cd C:\dev\roguERGlike\repos\sidecar
 $env:PYTHONPATH="src"
 python -m roguerglike_sidecar.cli --mode mock
+```
+
+For ERG write testing, use:
+
+```powershell
+python -m roguerglike_sidecar.cli --mode mock --allow-trainer-control
 ```
 
 Open the sidecar UI:

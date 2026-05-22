@@ -69,6 +69,9 @@ var _session_time_s := 0.0
 var _chart_sample_time_s := 0.0
 var _trainer_target_update_time_s := 0.0
 var _combat_over := false
+var _trainer_control_acquired := false
+var _trainer_target_power_supported := false
+var _last_target_ack_text := "ERG: no target ack yet"
 
 @onready var status_label: Label = %StatusLabel
 @onready var device_label: Label = %DeviceLabel
@@ -122,6 +125,11 @@ var _combat_over := false
 func _ready() -> void:
 	EffortBridge.connection_state_changed.connect(_on_connection_changed)
 	EffortBridge.device_connected.connect(_on_device_connected)
+	EffortBridge.device_disconnected.connect(_on_device_disconnected)
+	EffortBridge.device_capabilities_changed.connect(_on_device_capabilities_changed)
+	EffortBridge.control_acquired.connect(_on_control_acquired)
+	EffortBridge.control_released.connect(_on_control_released)
+	EffortBridge.target_power_set.connect(_on_target_power_set)
 	EffortBridge.power_changed.connect(_on_power_changed)
 	EffortBridge.cadence_changed.connect(_on_cadence_changed)
 	EffortBridge.heart_rate_changed.connect(_on_heart_rate_changed)
@@ -478,9 +486,11 @@ func _ramp_target_hr() -> float:
 
 
 func _apply_target_power(target_w: float) -> void:
-	if not EffortBridge.supports_target_power:
+	if not EffortBridge.supports_target_power or not _trainer_control_acquired:
 		return
-	EffortBridge.set_target_power(int(round(target_w)))
+	var watts := int(round(target_w))
+	_last_target_ack_text = "ERG target sent: %d W (waiting ack)" % watts
+	EffortBridge.set_target_power(watts)
 
 
 func _apply_warmup_target() -> void:
@@ -511,7 +521,7 @@ func _update_trainer_target_for_phase() -> void:
 
 
 func _release_trainer() -> void:
-	if not EffortBridge.supports_target_power:
+	if not EffortBridge.supports_target_power or not _trainer_control_acquired:
 		return
 	EffortBridge.release_control()
 
@@ -829,6 +839,7 @@ func _render() -> void:
 			roundi(_last_interval_power_accuracy * 100.0),
 			roundi(_average_turn_cadence_accuracy() * 100.0),
 		]
+	device_label.text = _trainer_status_text()
 	if _phase == Phase.SETUP:
 		if _workout_kind == WorkoutKind.RAMP_POWER_TEST:
 			target_label.text = "Setup: ramp test fills %.0f min with power/cadence rising then falling." % (_workout_duration_s / 60.0)
@@ -942,19 +953,69 @@ func _render_timer_only() -> void:
 		timer_label.text = "Power: %s" % _format_seconds(_interval_time_left)
 
 
+func _trainer_status_text() -> String:
+	var capability := "target_power=yes" if _trainer_target_power_supported else "target_power=no"
+	var control := "control=yes" if _trainer_control_acquired else "control=no"
+	return "Device: %s, %s, %s" % [capability, control, _last_target_ack_text]
+
+
 func _on_connection_changed(connected: bool) -> void:
 	status_label.text = "Sidecar: " + ("CONNECTED" if connected else "disconnected")
+	if not connected:
+		_trainer_control_acquired = false
+		_trainer_target_power_supported = false
 	print("[hiit_mvp] connection_state_changed connected=", connected)
 
 
 func _on_device_connected(kind: String, name: String) -> void:
-	device_label.text = "Device: %s (%s)" % [name, kind]
+	_last_target_ack_text = "%s (%s)" % [name, kind]
+	device_label.text = _trainer_status_text()
 	print("[hiit_mvp] device_connected kind=", kind, " name=", name)
+
+
+func _on_device_disconnected(kind: String, name: String) -> void:
+	_trainer_control_acquired = false
+	_trainer_target_power_supported = false
+	_last_target_ack_text = "disconnected: %s (%s)" % [name, kind]
+	device_label.text = _trainer_status_text()
+	print("[hiit_mvp] device_disconnected kind=", kind, " name=", name)
+
+
+func _on_device_capabilities_changed(
+	kind: String,
+	name: String,
+	target_power: bool,
+	_indoor_bike_simulation: bool
+) -> void:
+	_trainer_target_power_supported = target_power
+	_last_target_ack_text = "%s (%s)" % [name, kind]
+	device_label.text = _trainer_status_text()
+	print("[hiit_mvp] device_capabilities kind=", kind, " name=", name, " target_power=", target_power)
+
+
+func _on_control_acquired(kind: String, name: String) -> void:
+	_trainer_control_acquired = true
+	_last_target_ack_text = "control acquired: %s (%s)" % [name, kind]
+	device_label.text = _trainer_status_text()
+	print("[hiit_mvp] control_acquired kind=", kind, " name=", name)
+
+
+func _on_control_released(kind: String, name: String, reason: String) -> void:
+	_trainer_control_acquired = false
+	_last_target_ack_text = "control released: %s" % reason
+	device_label.text = _trainer_status_text()
+	print("[hiit_mvp] control_released kind=", kind, " name=", name, " reason=", reason)
+
+
+func _on_target_power_set(watts: int, accepted: bool, reason: String) -> void:
+	_last_target_ack_text = "ERG accepted %d W" % watts if accepted else "ERG rejected %d W: %s" % [watts, reason]
+	device_label.text = _trainer_status_text()
+	print("[hiit_mvp] target_power_set watts=", watts, " accepted=", accepted, " reason=", reason)
 
 
 func _on_power_changed(watts: int) -> void:
 	_current_power = watts
-	if _phase == Phase.ENEMY_INTERVAL:
+	if _phase == Phase.ENEMY_INTERVAL or _phase == Phase.POWER_UP:
 		_peak_interval_wkg = max(_peak_interval_wkg, _current_wkg())
 	_render()
 	print("[hiit_mvp] power_changed watts=", watts, " wkg=", _current_wkg())

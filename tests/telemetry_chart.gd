@@ -200,7 +200,7 @@ func _draw_workout_blocks(plot: Rect2) -> void:
 		)
 
 	var t: float = warmup_end
-	var phase := 0
+	var phase := 1
 	var first_power_block := true
 	while t < _total_workout_s:
 		var duration: float = _recovery_duration_s if phase == 0 else 30.0
@@ -269,7 +269,7 @@ func _draw_phase_targets(
 		)
 
 	var t: float = warmup_end
-	var phase := 0
+	var phase := 1
 	while t < _total_workout_s:
 		var duration: float = _recovery_duration_s if phase == 0 else 30.0
 		var end_t: float = min(t + duration, _total_workout_s)
