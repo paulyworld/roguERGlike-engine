@@ -129,6 +129,11 @@ func _process(delta: float) -> void:
 	if _chart_sample_time_s >= CHART_SAMPLE_PERIOD_S:
 		_chart_sample_time_s = 0.0
 		_add_chart_sample()
+		if _phase == Phase.WARMUP:
+			# Re-issue the current lerped target each chart-sample tick so the
+			# trainer's resistance tracks the ramp. Trivial wire load (~2 Hz),
+			# step changes are small (~0.05 W/s for a 10-min ramp).
+			_apply_warmup_target()
 
 	if _phase == Phase.WARMUP:
 		_warmup_time_left = max(0.0, _warmup_time_left - delta)
@@ -210,6 +215,7 @@ func _play_power_strike() -> void:
 		_combat_over = true
 		log_label.text = "Enemy defeated."
 		print("[hiit_mvp] victory")
+		_release_trainer()
 	_render()
 
 
@@ -251,6 +257,7 @@ func _start_workout() -> void:
 		chart.call("clear")
 	log_label.text = "Warmup started. Ramp smoothly before the first card turn."
 	_add_chart_sample()
+	_apply_warmup_target()
 	_render()
 
 
@@ -265,6 +272,7 @@ func _start_enemy_interval() -> void:
 	log_label.text = "Power interval started. %d unspent energy expired." % expired_energy
 	print("[hiit_mvp] interval_start target_wkg=", _interval_target_wkg())
 	_add_chart_sample()
+	_apply_interval_target()
 	_render()
 
 
@@ -276,6 +284,7 @@ func _begin_player_turn() -> void:
 	_interval_time_left = INTERVAL_DURATION_S
 	log_label.text = "Recovery/card phase started. Spend this turn's energy before it expires."
 	_add_chart_sample()
+	_apply_recovery_target()
 	_render()
 
 
@@ -299,6 +308,7 @@ func _resolve_enemy_interval() -> void:
 		_combat_over = true
 		log_label.text += " Player defeated."
 		print("[hiit_mvp] defeat")
+		_release_trainer()
 	_add_chart_sample()
 	_begin_player_turn()
 
@@ -323,6 +333,7 @@ func _reset_combat() -> void:
 	for chart in charts:
 		chart.call("clear")
 	log_label.text = "Enter rider stats and press Start Workout."
+	_release_trainer()
 	_render()
 
 
@@ -354,6 +365,39 @@ func _warmup_target_power_w() -> float:
 	var elapsed: float = _warmup_duration_s - _warmup_time_left
 	var progress: float = clamp(elapsed / max(_warmup_duration_s, 1.0), 0.0, 1.0)
 	return lerpf(_warmup_start_power_w(), _warmup_end_power_w(), progress)
+
+
+# --- trainer-control writes ---------------------------------------------
+#
+# Drives the trainer's ERG resistance to match the current phase's intended
+# power. All gated on EffortBridge.supports_target_power so a non-controllable
+# device (or sidecar without --allow-trainer-control) just no-ops — the game
+# still plays, just without resistance enforcement. Sidecar applies its own
+# safety clamps on top of whatever value we send.
+
+
+func _apply_target_power(target_w: float) -> void:
+	if not EffortBridge.supports_target_power:
+		return
+	EffortBridge.set_target_power(int(round(target_w)))
+
+
+func _apply_warmup_target() -> void:
+	_apply_target_power(_warmup_target_power_w())
+
+
+func _apply_recovery_target() -> void:
+	_apply_target_power(_recovery_target_power_w())
+
+
+func _apply_interval_target() -> void:
+	_apply_target_power(_interval_target_power_w())
+
+
+func _release_trainer() -> void:
+	if not EffortBridge.supports_target_power:
+		return
+	EffortBridge.release_control()
 
 
 func _recovery_target_wkg() -> float:
