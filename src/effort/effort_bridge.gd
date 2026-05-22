@@ -19,7 +19,8 @@ signal effort_pulse(np_5s: int, watts_per_kg: float)
 signal device_connected(kind: String, name: String)
 signal connection_state_changed(connected: bool)
 
-const SIDECAR_URL := "ws://localhost:8421"
+const DEFAULT_SIDECAR_URL := "ws://localhost:8421"
+const SIDECAR_URL_ENV := "ROGUERGLIKE_SIDECAR_URL"
 
 var _socket: WebSocketPeer
 var _connected := false
@@ -31,7 +32,10 @@ func _ready() -> void:
 
 
 func _connect() -> void:
-	var err := _socket.connect_to_url(SIDECAR_URL)
+	var sidecar_url := OS.get_environment(SIDECAR_URL_ENV)
+	if sidecar_url.is_empty():
+		sidecar_url = DEFAULT_SIDECAR_URL
+	var err := _socket.connect_to_url(sidecar_url)
 	if err != OK:
 		push_warning("Sidecar connection failed: %s" % err)
 
