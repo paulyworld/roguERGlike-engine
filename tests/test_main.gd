@@ -17,6 +17,8 @@ extends Control
 func _ready() -> void:
 	EffortBridge.connection_state_changed.connect(_on_connection_changed)
 	EffortBridge.device_connected.connect(_on_device_connected)
+	EffortBridge.device_disconnected.connect(_on_device_disconnected)
+	EffortBridge.device_capabilities_changed.connect(_on_device_capabilities_changed)
 	EffortBridge.power_changed.connect(_on_power_changed)
 	EffortBridge.cadence_changed.connect(_on_cadence_changed)
 	EffortBridge.heart_rate_changed.connect(_on_heart_rate_changed)
@@ -24,6 +26,9 @@ func _ready() -> void:
 	EffortBridge.effort_surge_ended.connect(_on_surge_ended)
 	EffortBridge.hr_zone_changed.connect(_on_hr_zone_changed)
 	EffortBridge.effort_pulse.connect(_on_effort_pulse)
+	EffortBridge.control_acquired.connect(_on_control_acquired)
+	EffortBridge.control_released.connect(_on_control_released)
+	EffortBridge.target_power_set.connect(_on_target_power_set)
 	print("[test_main] ready; waiting for sidecar on ", "ws://localhost:8421")
 
 
@@ -68,3 +73,39 @@ func _on_hr_zone_changed(from_zone: int, to_zone: int) -> void:
 
 func _on_effort_pulse(np_5s: int, watts_per_kg: float) -> void:
 	print("[test_main] effort_pulse np_5s=", np_5s, " w/kg=", watts_per_kg)
+
+
+func _on_device_disconnected(kind: String, name: String) -> void:
+	device_label.text = "Device: (none)"
+	print("[test_main] device_disconnected kind=", kind, " name=", name)
+
+
+func _on_device_capabilities_changed(
+	kind: String, name: String, target_power: bool, indoor_bike_simulation: bool
+) -> void:
+	print(
+		"[test_main] device_capabilities kind=", kind,
+		" name=", name,
+		" target_power=", target_power,
+		" indoor_bike_simulation=", indoor_bike_simulation,
+	)
+
+
+func _on_control_acquired(kind: String, name: String) -> void:
+	derived_label.text = "Control: ACQUIRED (%s)" % name
+	print("[test_main] control_acquired kind=", kind, " name=", name)
+
+
+func _on_control_released(kind: String, name: String, reason: String) -> void:
+	derived_label.text = "Control: released (%s)" % reason
+	print("[test_main] control_released kind=", kind, " name=", name, " reason=", reason)
+
+
+func _on_target_power_set(watts: int, accepted: bool, reason: String) -> void:
+	if accepted:
+		derived_label.text = "Target: %d W" % watts
+	print(
+		"[test_main] target_power_set watts=", watts,
+		" accepted=", accepted,
+		" reason=", reason,
+	)
