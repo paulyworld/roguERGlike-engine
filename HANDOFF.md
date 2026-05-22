@@ -3,122 +3,51 @@
 > Current state of this repo. Updated at the end of every session that touches it. Read first.
 
 **Last updated:** 2026-05-21
-**Current branch:** `docs/post-hrs-mvp-promotion-engine`
-**Base branch:** `develop`
-**Current focus:** Engine handshake scene is merged/live-validated. The Codex MVP HIIT playable-loop experiment is pushed on `feat/mvp-playable-loop` and should be tested separately before any architectural promotion.
+**Last session log:** `../../docs/sessions/2026-05-21-cadence-bailout-paused-mid-validation.md` (in umbrella)
+**Current branch:** `docs/post-cadence-bailout-paused-engine` (PR pending). Active feature work: `feat/mvp-playable-loop` (PR #4 Ready for Review). Live engine-driven ERG validation against KICKR is still pending.
+**Current focus:** EffortBridge now mirrors the sidecar's cadence-bailout events (merged via PR #9). MVP HIIT loop is ready to pick up the new signals when it next merges develop. **Engine-as-driver ERG validation has not yet had a green live ride** — three sidecar bugs (in develop today) blocked the most recent attempt; small follow-up sidecar PR is queued next.
 
-## Where We Are
+## Where we are
 
-The engine `develop` branch contains the sidecar handshake test scene. It has been live-validated against a real KICKR CORE: `EffortBridge` receives `power_changed` and `cadence_changed` from the sidecar live mode and updates the scene in real time.
+`develop` now includes the complete bridge contract for trainer control + cadence safety:
 
-A separate Codex side branch exists:
+- **Write API** (from PR #7): `set_target_power(int)`, `start()`, `stop()`, `release_control()`.
+- **Inbound signals**: `device_connected`, `device_disconnected`, `device_capabilities_changed`, `control_acquired`, `control_released`, `target_power_set`, plus (new this session) `cadence_bailout_engaged`, `cadence_bailout_disengaged`.
+- **State properties**: `supports_target_power: bool` (gate ERG UI on this), `is_cadence_paused: bool` (gate a "PAUSED — start pedalling" overlay on this).
 
-```text
-feat/mvp-playable-loop
-```
+The handshake test scene in `tests/test_main.tscn` connects every signal and mirrors them to stdout — useful for headless smoke checks against any sidecar config.
 
-That branch is intentionally experimental. It is not the canonical engine architecture yet. It prototypes a HIIT-style loop where card choices happen during recovery/card-play phases and higher-intensity output happens during power-interval phases.
+The MVP HIIT loop branch (`feat/mvp-playable-loop`, engine PR #4, Ready for Review) is the active game-side work. The maintainer + Codex have evolved it substantially: settings panel, per-metric charts, big readouts, target meters, warmup phase with ERG ramp, ERG step-test workout, ERG ramp-test workout, full HIIT encounter loop. The scene's ERG-write wiring (`_apply_warmup_target`, `_apply_recovery_target`, `_apply_interval_target`, `_release_trainer`) all gate on `EffortBridge.supports_target_power`.
 
-The broader rationale is documented in the umbrella repo:
+When this branch merges to develop or develops merges into it, the new bailout signals are available automatically (EffortBridge is autoloaded). The MVP scene can opt in to a `is_cadence_paused` overlay in a small future commit.
 
-```text
-../../docs/mvp-playable-loop-second-opinion.md
-```
+## What's next (immediate)
 
-## MVP Branch State
+1. **Wait on sidecar `fix/bailout-startup-and-scan-ux`** (queued, ~45 min sidecar-side PR). Fixes three real bugs surfaced during the most recent live-test attempt: premature bailout timing, fail-once scan UX, missing "claimed control" log line.
+2. **Engine-driven ERG live validation against KICKR**. Run the MVP scene through warmup → recovery → interval (or use the ERG Step Test workout for the cleanest signal). Goal: confirm `set_target_power` writes from the engine reach the trainer in real time, AND that the cadence-bailout correctly disengages + re-engages as the rider stops/starts pedalling.
+3. **Merge PR #4** once the validation pass is green.
 
-Latest pushed MVP commits include:
+Other directions (not blocking):
+- **Card-system foundation** on `feat/card-system-foundation` — minimal `Effect: Resource` with `apply(context: CombatContext)` and `CombatContext: RefCounted` with hand/draw/discard piles. Resolves `card.gd` parse errors and unblocks card variety beyond the MVP's two hard-coded cards (Power Strike, Cadence Guard).
+- **Real headless test runner** (GUT or hand-rolled) — current CI `godot-headless-tests` step runs with `|| true`; boots Godot but doesn't enforce assertions.
+- **Engine derived signals** (`effort_surge_*`, `hr_zone_changed`, `effort_pulse`) — wired through the bridge, no sidecar producer yet. Defer until at least one full recorded ride exists to derive from.
 
-```text
-04b6b01 feat: split workout telemetry charts
-756c0c9 feat: add FTP-based phase targets
-418704c feat: add HIIT session charting controls
-8b692e1 feat: prototype HIIT MVP playable loop
-```
+## Open threads
 
-The MVP branch currently includes:
+- **`card.gd` parse errors** — references undefined `Effect` / `CombatContext`. Not fatal (no autoload depends on `Card`), but blocks card variety.
+- **CardRegistry is a no-op stub**. Flesh out with card-system work.
+- **MVP scene lives under `tests/`** — once a real test runner lands and the loop is more than a prototype, move it to `repos/game/` per the engine/game boundary.
+- **No GUT or test-runner integration yet** — `tests/` currently holds the MVP scene.
+- **F5 in Godot remains flaky** for "run main scene". The ▶ Play button is the reliable launcher.
+- **MVP loop's UI doesn't surface `target_power_set` rejections** to the rider. The bridge fires the signal but the MVP scene doesn't connect to it. When the operator forgets `--allow-trainer-control`, the rider sees "trainer isn't responding" with no clue why. Worth wiring up in the next MVP-side touch: log to the existing log_label.
 
-- A 20-minute workout `Ride View` timeline.
-- Separate charts for power, heart rate, and cadence.
-- Large live readouts for watts, W/kg, HR, and cadence.
-- Editable rider settings: weight, FTP, age, max HR, and manual HR zone lower bounds.
-- FTP-based phase power targets:
-  - Recovery/card play: 55% FTP.
-  - Power interval: 120% FTP.
-- Phase-specific dotted target lines for target power, target HR, and target cadence.
-- Recovery/card timer and power-interval timer.
-- Energy rewards based on interval target performance.
+## Notes for next session
 
-There is no longer a required local stash restore step for the MVP branch. The prior handoff note about stashed WIP is stale.
+- The effort bridge (`src/effort/effort_bridge.gd`) is the contract surface with the sidecar — coordinate changes with the sidecar repo and update its `event-schema.md` first.
+- Run the sidecar BEFORE launching the engine. For real telemetry + ERG: `roguerglike-sidecar --mode live --device-bike "KICKR" --device-hr "mudrat" --allow-trainer-control --rider-ftp 250`. The flag set matters; missing `--allow-trainer-control` is a silent failure on the engine side today (until the bridge starts listening for `target_power_set accepted=false`).
+- The MVP loop is on `feat/mvp-playable-loop`, checked out in a separate worktree at `repos/engine-mvp/`. Launch Godot with `--path C:\dev\roguERGlike\repos\engine-mvp` (not the main `repos/engine` checkout).
+- **The KICKR's blue LED is NOT a "control claimed" indicator** — solid blue just means BLE GATT connected. Use the sidecar log (once the upcoming `claimed control of <device>` line lands) or the bridge's `control_acquired` signal for authoritative state.
 
-## How To Run The MVP Without A Bike
+## Entry point for next session
 
-Start sidecar mock mode:
-
-```powershell
-cd C:\dev\roguERGlike\repos\sidecar
-$env:PYTHONPATH="src"
-python -m roguerglike_sidecar.cli --mode mock
-```
-
-Open mock controls:
-
-```text
-http://localhost:8422
-```
-
-Run the MVP engine scene:
-
-```powershell
-cd C:\dev\roguERGlike\repos\engine
-git switch feat/mvp-playable-loop
-git pull
-..\..\..\tools\Godot\godot.exe --path .
-```
-
-## How To Run The MVP With The Bike
-
-Start sidecar live mode with the trainer name/address that was validated locally:
-
-```powershell
-cd C:\dev\roguERGlike\repos\sidecar
-$env:PYTHONPATH="src"
-python -m roguerglike_sidecar.cli --mode live --device-bike KICKR
-```
-
-Then launch the MVP branch as above. The engine connects to `ws://localhost:8421`, so it consumes either mock or live sidecar telemetry without code changes.
-
-Trainer control writes are not implemented yet. The current live-bike path is passive telemetry only: power/cadence/speed/possibly HR from the trainer. Target power/resistance control will require FTMS control-point support in the sidecar.
-
-## What's Next
-
-1. **Playtest `feat/mvp-playable-loop`.** Use mock mode first, then the KICKR if desired. Evaluate whether the split between recovery/card play and interval/recharge feels better than simultaneous combat/effort.
-2. **Decide what target metrics actually score.** Power currently drives energy rewards; HR and cadence are displayed as targets/guidance. Decide whether cadence and HR should affect rewards or synergies.
-3. **Add sidecar trainer control only after the loop feels promising.** Needed for ERG/target power or resistance writes during power intervals. This should be guarded by an explicit live-control option.
-4. **Card-system foundation.** `card.gd` still references undefined `Effect` and `CombatContext`; define minimal base classes before promoting MVP combat concepts out of the test scene.
-5. **Tighten CI.** Current Godot headless boot checks are useful but not true assertions. Add a real test runner or assertion scene later.
-
-## Open Threads
-
-- `feat/mvp-playable-loop` is still a side experiment; keep it local to test-scene scope until playtested.
-- `tests/telemetry_chart.gd` is a test harness chart, not a reusable UI primitive yet.
-- Distance is not charted because `distance` events are not currently exposed through `EffortBridge`.
-- HR zones use `220 - age` defaults plus manual lower-bound overrides; this is sufficient for testing, not final athlete onboarding.
-- FTMS control-point writes for ERG/target power are not implemented.
-- Multi-platform export config is not set up.
-
-## Notes For Next Session
-
-- Read this handoff plus `../../docs/mvp-playable-loop-second-opinion.md` before continuing MVP work.
-- Use `--mode mock` for quick UI/play-loop iteration.
-- Use `--mode live --device-bike KICKR` only when actively testing with the trainer.
-- If port `8421` is busy, inspect it with:
-
-```powershell
-Get-NetTCPConnection -LocalPort 8421 | Select-Object LocalAddress,LocalPort,State,OwningProcess
-Get-CimInstance Win32_Process -Filter "ProcessId = <PID>" | Format-List ProcessId,Name,CommandLine
-```
-
-## Entry Point For Next Session
-
-> Continue from `feat/mvp-playable-loop`. Test the split Ride View / Power / HR / Cadence charts with mock sidecar first. Then, if the bike is available, run sidecar live mode and verify that real power/cadence update the MVP loop. Do not implement FTMS resistance/ERG writes until the basic loop feels worth continuing.
+> "Wait for sidecar `fix/bailout-startup-and-scan-ux` PR to land on sidecar develop, then retry engine-driven ERG live validation against KICKR via the MVP scene's ERG Step Test workout. Confirm: `target_power_set` events flow back accepted=true as phases drive the trainer; cadence-bailout fires after the rider stops at a meaningful target and disengages cleanly when riding resumes. If green, merge engine PR #4 (MVP HIIT playable loop)."
