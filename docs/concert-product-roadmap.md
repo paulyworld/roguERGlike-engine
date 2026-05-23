@@ -5,7 +5,7 @@
 
 ## Current Product Direction
 
-`repos/concert-mvp` is the near-term product surface. It currently feels like the better riding experience and should get the next usability work.
+`repos/concert-mvp` is the near-term product surface and is now codenamed **gizzERG**. It currently feels like the better riding experience and should get the next usability work.
 
 `repos/sidecar` remains the trainer runtime and safety boundary. It owns BLE, trainer control, cadence bailout, ride logging, protocol versioning, semantic annotations, and Pattern B structured pause.
 
@@ -16,6 +16,29 @@ Additional planning notes:
 - `docs/claude-sidecar-review-brief.md` is the sidecar implementation packet for Claude review before coding.
 - `docs/concert-mode-exploration.md` covers Terrain Mode, shifting, local results, leaderboards, and group rides.
 - `docs/training-platform-export-research.md` covers FIT export, Strava upload, TrainingPeaks constraints, and other training platforms.
+
+## gizzERG App Stack Direction
+
+For the future polished concert app, prefer:
+
+```text
+SvelteKit + TypeScript + Vite + authored CSS/CSS modules
+```
+
+Do not default to React or Tailwind for gizzERG. The product should have a beautiful artistic UI, and prior LLM-assisted React/Tailwind work has created implementation churn and hard-to-review styling. Svelte keeps component markup, logic, and style close together, while authored CSS supports a more distinctive concert/ride visual language.
+
+Recommended app structure:
+
+```text
+src/lib/protocol/     sidecar WebSocket client + typed events
+src/lib/workout/      profile normalization, ERG target math
+src/lib/terrain/      grade, speed, elevation, climb categories
+src/lib/ride-log/     local results, annotations, ghost data
+src/routes/           Svelte screens
+src/styles/           design tokens, global CSS, animation primitives
+```
+
+Use shared design tokens for color, spacing, type, depth, and motion. Keep workout/profile/terrain/protocol logic in pure TypeScript modules so it remains testable outside the UI.
 
 ## Answers to Current Architecture Choices
 
@@ -52,7 +75,7 @@ Keep trainer control out of browser UI code. Browser clients compute intent: tar
 
 ### 3. Workout logic vs UI
 
-Concert should keep moving pure workout logic out of DOM-heavy `app.js`:
+gizzERG should keep moving pure workout logic out of DOM-heavy `app.js`:
 
 - target generation;
 - profile normalization;
@@ -61,7 +84,7 @@ Concert should keep moving pure workout logic out of DOM-heavy `app.js`:
 - protocol client wrapper;
 - ride sample/annotation model.
 
-TypeScript + Vite is still the recommended next frontend infrastructure step once the current logging/annotation loop is validated.
+SvelteKit + TypeScript + authored CSS/CSS modules is the recommended next frontend infrastructure step once the current logging/annotation loop is validated. A smaller TypeScript + Vite migration is still acceptable as an intermediate step, but the intended app direction is SvelteKit rather than React/Tailwind.
 
 ### 4. What "profiles" mean
 
@@ -170,14 +193,14 @@ The immediate sequence should be:
 1. **Claude / sidecar:** finish sidecar `--record` branch if not merged.
 2. **Claude / sidecar:** add protocol version / feature negotiation.
 3. **Claude / sidecar:** add semantic annotations and record them to JSONL.
-4. **Codex / concert-mvp:** add F2 annotation UX.
-5. **Codex / concert-mvp:** prototype ERG Terrain Mode as client-only terrain math and UI.
+4. **Codex / gizzERG (`concert-mvp`):** add F2 annotation UX.
+5. **Codex / gizzERG (`concert-mvp`):** prototype ERG Terrain Mode as client-only terrain math and UI.
 6. **Codex + Claude:** use real ride logs + F2 annotations to tune workout/profile/terrain behavior.
 7. **Claude / sidecar:** implement Pattern B structured pause as core infrastructure.
-8. **Codex / concert-mvp:** add optional concert support for Pattern B where pauses are structured, not ordinary YouTube play/pause.
+8. **Codex / gizzERG (`concert-mvp`):** add optional concert support for Pattern B where pauses are structured, not ordinary YouTube play/pause.
 9. **Claude / sidecar:** add FIT export groundwork for Strava/TrainingPeaks manual upload, then Strava direct upload.
-10. **Codex / concert-mvp:** add post-ride export/upload UI once sidecar export exists.
-11. **Codex / concert-mvp:** start TypeScript + Vite migration once the protocol/logging loop is stable.
+10. **Codex / gizzERG (`concert-mvp`):** add post-ride export/upload UI once sidecar export exists.
+11. **Codex / gizzERG (`concert-mvp`):** start SvelteKit + TypeScript + authored CSS migration once the protocol/logging loop is stable.
 12. **Codex + Claude:** begin Windows desktop packaging spike with bundled sidecar.
 
 ## Ownership Map
@@ -188,6 +211,7 @@ The immediate sequence should be:
 | `--record` first-class CLI | `sidecar` | Claude | Already on `feat/record-flag` per handoff. |
 | `annotate` command + `rider_annotation` envelope | `sidecar` | Claude | Must persist into JSONL ride logs. |
 | F2 annotation UX | `concert-mvp` | Codex or Claude | Send annotation with video/workout/telemetry context. |
+| gizzERG app shell | `concert-mvp` | Codex | Prefer SvelteKit + TypeScript + authored CSS/CSS modules; avoid default React/Tailwind. |
 | Profile schema design | `concert-mvp` first, later shared docs | Codex or Claude | Move from source-coded profile toward versioned data files. |
 | Pattern B structured pause | `sidecar` | Claude | Core riding infrastructure, not engine-MVP-specific. |
 | Pattern B client wrappers | `concert-mvp`, `engine` | Codex or Claude | Concert only for structured pauses; engine generic wrapper later. |
@@ -198,10 +222,10 @@ The immediate sequence should be:
 | SIM mode FTMS writes | `sidecar` | Claude | Later, gated by `indoor_bike_simulation`. |
 | Local results and ghosts | `concert-mvp` | Codex | Pre-server leaderboard foundation. |
 | Public leaderboards/group rides | `server` later | TBD | Do after local results/ghosts prove useful. |
-| TypeScript + Vite migration | `concert-mvp` | Codex or Claude | Do after logging/annotation path is stable. |
+| SvelteKit + TypeScript migration | `concert-mvp` | Codex | Do after logging/annotation path is stable; use authored CSS/CSS modules. |
 | Windows packaging spike | `concert-mvp` + `sidecar` | Codex or Claude | Evaluate bundled sidecar launch and packaged BLE behavior. |
 | Godot deck-builder MVP | `engine-mvp` / `engine` | Deferred | Keep as validated side experiment. |
 
 ## Next Session Entry Point
 
-> "Product direction: focus on concert-mvp. Claude sidecar track should implement protocol version/feature negotiation, then semantic annotations tied into `--record` JSONL. Concert track should add F2 annotation UX that sends current playback/workout/telemetry context. Pattern B remains core sidecar infrastructure after/alongside annotations. Do not promote the Godot MVP or rewrite Python sidecar yet."
+> "Product direction: focus on gizzERG (`repos/concert-mvp`). Future app shell should be SvelteKit + TypeScript + authored CSS/CSS modules, not default React/Tailwind. Claude sidecar track should implement protocol version/feature negotiation, then semantic annotations tied into `--record` JSONL. gizzERG track should add F2 annotation UX that sends current playback/workout/telemetry context. Pattern B remains core sidecar infrastructure after/alongside annotations. Do not promote the Godot MVP or rewrite Python sidecar yet."

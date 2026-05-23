@@ -9,6 +9,8 @@
 
 **Next-step ownership convention:** When recommending next steps, include who should do each item based on the current split. For now, Claude owns sidecar/protocol/runtime work; Codex owns engine/client bridge work and can also take concert-mvp UI/client tasks when requested. This split is fluid and can change later.
 
+**gizzERG app stack convention:** `repos/concert-mvp` is now codenamed **gizzERG**. For the future polished app, prefer **SvelteKit + TypeScript + authored CSS/CSS modules**. Avoid defaulting to React or Tailwind; prior LLM coding experience suggests Tailwind/React can create hard-to-review UI churn, and gizzERG needs a crafted artistic interface rather than a generic dashboard.
+
 ## Where we are
 
 The engine `develop` branch contains:
@@ -51,7 +53,7 @@ See `docs/claude-sidecar-review-brief.md` for the sidecar implementation packet 
 ## What's next
 
 1. **Claude / sidecar:** ship the next protocol foundation. Review `docs/claude-sidecar-review-brief.md`; then implement protocol feature negotiation, annotation recording, Pattern B structured pause, distance/export groundwork, and later terrain/SIM support in the order agreed there.
-2. **Codex / concert-mvp:** add client UX around sidecar capabilities as they land: F2 annotations, post-ride export/upload controls, Terrain Mode prototype, local results, and UI-only shifting.
+2. **Codex / gizzERG (`concert-mvp`):** add client UX around sidecar capabilities as they land: F2 annotations, post-ride export/upload controls, Terrain Mode prototype, local results, and UI-only shifting. When the app shell is refreshed, use SvelteKit + TypeScript + authored CSS/CSS modules unless a concrete reason overrides it.
 3. **Codex / engine:** add generic Godot bridge support only after sidecar schema lands. Engine should expose `pause_effort(reason, target_watts)` / `resume_effort()` and `effort_paused` / `effort_resumed` signals without depending on the deck-builder MVP branch.
 4. **Server owner later:** own authenticated leaderboards, group-ride rooms, public rankings, anti-cheat policy, and account/privacy surfaces once local ghosts and private results are validated.
 5. **Keep concert-mvp as the primary riding UX for now.** Concert can continue Pattern A for YouTube play/pause, then optionally adopt Pattern B for authored workout breaks or explicit structured pauses.
@@ -99,9 +101,11 @@ cd C:\dev\roguERGlike\repos\engine-mvp
 
 ## Sibling MVP: `repos/concert-mvp`
 
-`repos/concert-mvp/` is now the primary near-term riding experience. It is a browser-based YouTube-driven ERG controller that maps video time + rider FTP/weight to target watts via a manually authored rolling concert profile.
+`repos/concert-mvp/` is now codenamed **gizzERG** and is the primary near-term riding experience. It is a browser-based YouTube-driven ERG controller that maps video time + rider FTP/weight to target watts via a manually authored rolling concert profile.
 
 It already implements Pattern A client-side pause. Do not force Pattern B into ordinary YouTube play/pause just for symmetry. Pattern B becomes useful there for structured workout pauses: authored breaks, intermissions, explicit workout-clock suspend, or other moments where the cadence-bailout timer should stop.
+
+Future gizzERG app-shell direction: SvelteKit + TypeScript + authored CSS/CSS modules, with shared design tokens and pure modules for protocol/workout/terrain math. Do not default to React/Tailwind for this app.
 
 ## Entry point for next session
 

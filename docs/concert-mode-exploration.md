@@ -12,7 +12,9 @@ This gives the app a cycling-native metaphor without abandoning the core concert
 
 ## Coding Posture
 
-Start with a client-only ERG Terrain prototype in `repos/concert-mvp`. Do not wait for FTMS SIM mode, Bluetooth controls, public leaderboards, or group rides.
+Start with a client-only ERG Terrain prototype in gizzERG (`repos/concert-mvp`). Do not wait for FTMS SIM mode, Bluetooth controls, public leaderboards, or group rides.
+
+For the polished app shell, use SvelteKit + TypeScript + authored CSS/CSS modules. Terrain math should be pure TypeScript; terrain visuals should be authored UI, canvas, or WebGL as needed, not Tailwind utility sprawl.
 
 The first coded version should answer one question:
 
@@ -51,7 +53,7 @@ Design rules:
 
 ## Minimum Viable Terrain Mode
 
-Owner: **Codex / concert-mvp**
+Owner: **Codex / gizzERG (`concert-mvp`)**
 
 Inputs available now:
 
@@ -226,7 +228,7 @@ Track classification:
 
 ## Local Result Schema
 
-Owner: **Codex / concert-mvp**
+Owner: **Codex / gizzERG (`concert-mvp`)**
 
 Before any server leaderboard exists, save local results with enough structure to migrate later.
 
@@ -291,21 +293,21 @@ Key design point: group rides should use the same deterministic route/profile ve
 Current split:
 
 - **Claude / sidecar:** distance derivation, virtual distance/elevation recorder fields, SIM mode FTMS write support, virtual shifting command schema, trainer capability events.
-- **Codex / concert-mvp:** mode design, terrain mapping, route visualization, UI-only shifting, segment overlays, local leaderboards, ghost rides.
+- **Codex / gizzERG (`concert-mvp`):** mode design, terrain mapping, route visualization, UI-only shifting, segment overlays, local leaderboards, ghost rides, and eventual SvelteKit + TypeScript + authored-CSS app shell.
 - **Server owner later:** public accounts, cloud leaderboards, group ride rooms, anti-cheat policy, privacy controls.
 - **Codex / engine:** no immediate work unless Godot becomes an active client again.
 
 ## Recommended Path
 
-1. **Codex / concert-mvp:** extract terrain math into a pure module with tests: intensity -> grade, power/grade -> speed, distance/elevation accumulation.
-2. **Codex / concert-mvp:** prototype Terrain Mode as a pure client mode using the existing intensity profile and ERG target output.
-3. **Codex / concert-mvp:** add virtual route/elevation UI: current grade, distance, elevation gain, climb category, segment progress.
+1. **Codex / gizzERG (`concert-mvp`):** extract terrain math into a pure module with tests: intensity -> grade, power/grade -> speed, distance/elevation accumulation.
+2. **Codex / gizzERG (`concert-mvp`):** prototype Terrain Mode as a pure client mode using the existing intensity profile and ERG target output.
+3. **Codex / gizzERG (`concert-mvp`):** add virtual route/elevation UI: current grade, distance, elevation gain, climb category, segment progress.
 4. **Claude / sidecar:** finish distance derivation and ensure ride logs include enough samples for post-ride route reconstruction.
-5. **Codex / concert-mvp:** add local-only track results: time, avg W/kg, normalized W/kg, elevation, category.
-6. **Codex / concert-mvp:** add UI-only shifting controls and keyboard shortcuts.
+5. **Codex / gizzERG (`concert-mvp`):** add local-only track results: time, avg W/kg, normalized W/kg, elevation, category.
+6. **Codex / gizzERG (`concert-mvp`):** add UI-only shifting controls and keyboard shortcuts.
 7. **Claude / sidecar:** research and implement FTMS SIM mode command support behind `indoor_bike_simulation` capability.
 8. **Codex + Claude:** compare ERG Terrain versus SIM Terrain in mock mode and live KICKR rides.
-9. **Codex / concert-mvp:** add asynchronous ghost riders from prior local ride logs.
+9. **Codex / gizzERG (`concert-mvp`):** add asynchronous ghost riders from prior local ride logs.
 10. **Server owner later:** design authenticated leaderboard API with profile versioning and hardware-source flags.
 11. **Server owner later:** design scheduled group rides after local ghosts and private leaderboards feel good.
 
@@ -319,3 +321,5 @@ Recommended first coding PR in `repos/concert-mvp`:
 - Render read-only Terrain Mode metrics without changing existing trainer command behavior.
 
 This PR should not depend on sidecar changes. It gives Claude room to review and implement sidecar protocol work in parallel.
+
+Do this in the current app if that is fastest. Do not block the Terrain Mode proof on the SvelteKit migration. When the app shell migration begins, preserve the pure terrain/workout/protocol modules and move the presentation into Svelte components with local authored CSS.
