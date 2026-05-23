@@ -167,6 +167,74 @@ First implementation detail:
 
 ## Control Modes
 
+## Industry Reference: Terrain, ERG, and Manual Modes
+
+Current training apps split terrain difficulty into two broad control models.
+
+### ERG / Workout Control
+
+In ERG mode, terrain is not the trainer-control input. The app sends a target wattage and the trainer adjusts resistance to hold that wattage as cadence changes.
+
+Observed patterns:
+
+- Zwift workouts: ERG resistance is based on cadence and workout target, not road gradient. Speed is still calculated from rider power.
+- TrainerRoad: target power is based on FTP; gearing and cadence do not change the target resistance, though they can change feel and flywheel speed.
+- Wahoo SYSTM: ERG meets power targets; Level mode is the alternative where the rider shifts to hit targets.
+- ROUVY workouts: ERG mode is for precise power targeting in workouts.
+
+Implication for gizzERG:
+
+- **ERG Terrain** should treat grade/elevation as presentation and scoring context.
+- Trainer commands remain target watts.
+- Difficulty is primarily controlled by target-watt mapping, FTP scaling, and workout profile intensity.
+- Shifting in ERG Terrain should be UI/pacing flavor only until SIM mode exists.
+
+Good ERG Terrain difficulty knobs:
+
+- target-watt intensity scale;
+- FTP percent caps/floors;
+- ramp duration/smoothing;
+- recovery floor;
+- terrain grade display scale;
+- virtual speed model difficulty, if local results use terrain distance/time.
+
+### Manual / SIM / Slope Control
+
+In manual terrain modes, the app sends terrain or resistance rather than a target wattage. The rider changes gear/cadence to choose power output.
+
+Observed patterns:
+
+- ROUVY route mode uses real route data such as elevation, slope, and length; it models slope, gravity, air resistance, rider/bike weight, and related factors, then sets smart-trainer resistance.
+- FulGaz defaults to high realism and exposes separate uphill/downhill slope scaling plus a maximum slope limit. Lowering uphill scaling acts like easier gearing without changing speed for a given power.
+- Zwift free ride/SIM mode sends gradient to the trainer, with Trainer Difficulty scaling how much of the gradient is felt. This changes feel/gearing demand, not route speed for a given rider output.
+- ROUVY now supports virtual shifting through on-screen controls, keyboard, and companion app on compatible Bluetooth-connected trainers.
+- Zwift virtual shifting uses compatible trainers and controller devices; it provides 24 virtual gears and changes resistance electronically to match the selected virtual gear.
+
+Implication for gizzERG:
+
+- **SIM Terrain** should use grade as the trainer-control input once sidecar supports FTMS Indoor Bike Simulation Parameters.
+- Difficulty should have separate "route truth" and "trainer feel" concepts:
+  - route grade: canonical grade used for scoring, distance, elevation, category, results;
+  - felt grade: scaled/clamped grade sent to the trainer for comfort and hardware limits.
+- Virtual shifting belongs naturally in SIM Terrain, not ERG Terrain.
+
+Good SIM Terrain difficulty knobs:
+
+- uphill slope scaling;
+- downhill slope scaling;
+- maximum felt uphill grade;
+- maximum felt downhill grade;
+- virtual gear range;
+- starting/neutral gear;
+- rider+bike mass;
+- rolling resistance;
+- aerodynamic drag;
+- route difficulty/category scoring.
+
+Implementation rule:
+
+Do not let comfort scaling corrupt the canonical route. If a song section maps to a 9% climb, keep that 9% in the route/profile and leaderboard version. A rider may choose 50% felt-grade scaling so the trainer feels like 4.5%, but route distance/elevation/category should remain tied to the canonical terrain version.
+
 ### Phase 1: ERG Terrain Skin
 
 Keep using target power. The app displays grade, distance, elevation, and segments, but sidecar still drives trainer resistance by ERG watt target.
@@ -194,6 +262,14 @@ Current research:
 
 Sources:
 
+- https://support.zwift.com/erg-mode-in-workouts-SkQJC8OEH
+- https://support.trainerroad.com/hc/en-us/articles/201869764-Erg-Mode-Explained
+- https://support.trainerroad.com/hc/en-us/articles/360024069532-Smart-Trainer-Modes-Explained
+- https://support.wahoofitness.com/hc/en-us/articles/4402565516946-A-Guide-to-using-ERG-mode
+- https://support.rouvy.com/hc/en-us/articles/360018681117-How-does-ROUVY-control-resistance-and-calculate-virtual-power
+- https://feedback.fulgaz.com/en/help/articles/360004732451-the-resistance-andor-climbs-feel-too-hard
+- https://support.rouvy.com/hc/en-us/articles/32452137189393
+- https://support.zwift.com/en_us/virtual-shifting-faq-r16UiRFlT
 - https://files.bluetooth.com/wp-content/uploads/dlm_uploads/2024/10/FTMS.TS_.p6.pdf
 - https://dudanov.github.io/python-pyftms/pyftms.html
 - https://stackoverflow.com/questions/59653425/zwift-add-resistance-with-ftms-control-point
