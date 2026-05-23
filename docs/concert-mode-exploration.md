@@ -220,7 +220,8 @@ Implication for gizzERG:
 
 - **ERG Terrain** should treat grade/elevation as presentation and scoring context.
 - Trainer commands remain target watts.
-- Difficulty is primarily controlled by target-watt mapping, FTP scaling, and workout profile intensity.
+- Difficulty and rider feel are primarily controlled by target-watt mapping, FTP scaling, workout profile intensity, cadence, fatigue, and music/video context.
+- Distance and elevation can still be useful in ERG mode, but they are derived stats and export context rather than the main thing driving rider experience.
 - Shifting in ERG Terrain should be UI/pacing flavor only until SIM mode exists.
 - Cadence can still vary meaningfully on big "climbs" because riders naturally change cadence under different target watts, fatigue, and perceived terrain. ERG does not make cadence irrelevant; it just prevents cadence/gearing from being the primary way difficulty is set.
 
@@ -272,6 +273,29 @@ Good SIM Terrain difficulty knobs:
 Implementation rule:
 
 Do not let comfort scaling corrupt the canonical route. If a song section maps to a 9% climb, keep that 9% in the route/profile and leaderboard version. A rider may choose 50% felt-grade scaling so the trainer feels like 4.5%, but route distance/elevation/category should remain tied to the canonical terrain version.
+
+## ERG Distance and Export Stats
+
+Owner: **Codex / gizzERG (`concert-mvp`)** for client display; **Claude / sidecar** for durable recording/export.
+
+In ERG Terrain, distance and elevation should be treated carefully:
+
+- They can make the ride feel more complete and legible.
+- They can provide useful completed-activity stats for Strava and other platforms.
+- They can support local results, ghosts, and route-like replay.
+- They should not be presented as the mechanism that caused the resistance unless the app is actually in SIM/manual terrain mode.
+
+Export policy:
+
+- Mark ERG Terrain exports as indoor/virtual trainer activities where the platform supports it.
+- Preserve enough metadata to distinguish synthetic distance/elevation from trainer-reported distance.
+- Avoid implying outdoor GPS route truth unless a GPX/route file or generated world route is explicitly part of the activity.
+
+Longer-term map direction:
+
+- A generative world map could turn linear ride distance into a visual route, even when no real GPS route exists.
+- GPX-backed modes could use actual route distance/elevation as the canonical terrain source.
+- Music-generated terrain and GPX-generated terrain should share the same route-sample abstraction: distance, elevation, grade, segment/category metadata, and optional media sync.
 
 ### Phase 1: ERG Terrain Skin
 
