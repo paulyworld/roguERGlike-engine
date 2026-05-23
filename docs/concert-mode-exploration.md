@@ -38,6 +38,7 @@ Outputs:
 - current virtual speed;
 - elapsed distance;
 - elevation gain;
+- distance-domain power and pacing metrics;
 - climb/segment category;
 - difficulty score;
 - segment split and leaderboard placement.
@@ -165,6 +166,39 @@ First implementation detail:
 - Use climb-rating color bands from easy/flat through red/hard climb.
 - Start with a single rider progress marker; add ghost/pacer overlays after local result replay exists.
 
+## Charting Differences by Mode
+
+ERG and Terrain modes should not be forced into the same chart layout.
+
+Current ERG-focused ride timeline:
+
+- Primary x-axis is media time.
+- Primary concern is target watts over time.
+- Cadence, HR, and current power explain compliance with the workout target.
+- Terrain, if shown, is secondary context.
+
+Terrain-focused timeline:
+
+- Primary x-axis should be distance or route progress, with media time still available as context.
+- Primary visual surface is the elevation profile and grade distribution.
+- Power is interpreted as work over distance and slope, not only as compliance with a time-based target.
+- Speed, W/kg, grade, elevation gain, and pacer delta become first-class metrics.
+- The layout should make it easy to see "what climb is coming" and "how far through the climb am I?"
+
+Recommended first Terrain chart layout:
+
+- Full elevation profile as a shaded background region.
+- Vertical climb-rating bars layered into the profile, with red for the hardest grades.
+- Rider progress line/marker tracing over the top of the elevation profile.
+- Optional current viewport/zoom around the rider while preserving a whole-route overview.
+- Separate HUD for live power, cadence, HR, grade, speed, W/kg, distance, elevation gain, and pacer delta.
+
+Pacer mode:
+
+- Start with delta versus personal best once local results exist.
+- Later allow ghost rider or another rider's time.
+- Keep pacer delta outside the terrain chart unless adding a ghost overlay improves readability.
+
 ## Control Modes
 
 ## Industry Reference: Terrain, ERG, and Manual Modes
@@ -188,6 +222,7 @@ Implication for gizzERG:
 - Trainer commands remain target watts.
 - Difficulty is primarily controlled by target-watt mapping, FTP scaling, and workout profile intensity.
 - Shifting in ERG Terrain should be UI/pacing flavor only until SIM mode exists.
+- Cadence can still vary meaningfully on big "climbs" because riders naturally change cadence under different target watts, fatigue, and perceived terrain. ERG does not make cadence irrelevant; it just prevents cadence/gearing from being the primary way difficulty is set.
 
 Good ERG Terrain difficulty knobs:
 
@@ -201,6 +236,8 @@ Good ERG Terrain difficulty knobs:
 ### Manual / SIM / Slope Control
 
 In manual terrain modes, the app sends terrain or resistance rather than a target wattage. The rider changes gear/cadence to choose power output.
+
+In this mode, cadence is primarily up to the rider. Power comes from the combination of felt grade/resistance, selected gear, cadence, rider strength, and trainer physics. The easiest available gear or virtual gear range becomes the practical lower limit for holding a given power on steep terrain, especially for riders whose FTP makes a climb disproportionately hard.
 
 Observed patterns:
 
@@ -217,6 +254,7 @@ Implication for gizzERG:
   - route grade: canonical grade used for scoring, distance, elevation, category, results;
   - felt grade: scaled/clamped grade sent to the trainer for comfort and hardware limits.
 - Virtual shifting belongs naturally in SIM Terrain, not ERG Terrain.
+- Manual/SIM difficulty should consider FTP-aware accessibility: a route may be canonically steep while the felt grade, virtual gear range, or lowest gear can be adjusted so the rider is not forced below a sustainable cadence.
 
 Good SIM Terrain difficulty knobs:
 
