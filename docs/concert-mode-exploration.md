@@ -12,7 +12,9 @@ This gives the app a cycling-native metaphor without abandoning the core concert
 
 ## Coding Posture
 
-Start with a client-only ERG Terrain prototype in gizzERG (`repos/concert-mvp`). Do not wait for FTMS SIM mode, Bluetooth controls, public leaderboards, or group rides.
+Start with a client-only Terrain prototype in gizzERG (`repos/concert-mvp`). Do not wait for FTMS SIM mode, Bluetooth controls, public leaderboards, or group rides.
+
+The first prototype can be developed as a standalone terrain model based on the song/profile chart, with estimated distance from terrain plus realistic speeds for the rider's power/cadence levels. Then decide whether a ride uses that terrain as ERG-on visual/export context, Manual/SIM trainer control, or a future mix of both.
 
 For the polished app shell, use SvelteKit + TypeScript + authored CSS/CSS modules. Terrain math should be pure TypeScript; terrain visuals should be authored UI, canvas, or WebGL as needed, not Tailwind utility sprawl.
 
@@ -51,6 +53,7 @@ Design rules:
 - Breakdowns, jams, intros, interludes, and low-intensity sections map to flats, descents, or shallow grades.
 - Smoothing matters more than literal BPM. Sudden musical changes can create short pitches, but grade should not flicker every beat.
 - Difficulty should be reproducible from profile data plus rider settings, so leaderboards are meaningful.
+- Separate the terrain route from the trainer-control mode. The same route can later be experienced with ERG on, Manual/SIM, or mixed-mode toggling during a ride.
 
 ## Minimum Viable Terrain Mode
 
@@ -70,7 +73,7 @@ First implementation:
 - Add a ride mode selector with existing mode(s) plus `Terrain`.
 - Add a dev/test tuning popout with sliders for terrain mapping parameters.
 - Convert profile intensity to `grade_percent` with smoothing and clamps.
-- Compute virtual speed from a simple deterministic model.
+- Compute virtual speed from a simple deterministic model using terrain plus rider power/cadence estimates.
 - Accumulate virtual distance and positive elevation gain client-side.
 - Show current grade, distance, elevation gain, segment name/category, and W/kg.
 - Render a side-view terrain map: elevation gain/fall as the main profile, vertical color-shaded climb-rating bars, and a rider progress line tracing over the elevation topline.
@@ -199,13 +202,37 @@ Pacer mode:
 - Later allow ghost rider or another rider's time.
 - Keep pacer delta outside the terrain chart unless adding a ghost overlay improves readability.
 
+## ERG-On vs Manual/SIM During a Ride
+
+Long-term target: the rider should be able to toggle ERG on/off during a ride.
+
+ERG-on:
+
+- The app/sidecar controls target watts.
+- Terrain, distance, elevation, wind, and world visuals can be shown and recorded, but they are not what directly changes trainer resistance.
+- Rider feel comes from target watts, cadence, fatigue, ramping, and the psychological context of the terrain/music.
+- Speed/distance/elevation are model outputs useful for UI, results, ghosts, and exports.
+
+Manual/SIM:
+
+- The route model controls trainer feel through grade/resistance/simulation parameters.
+- Terrain, wind, rolling resistance, rider/bike mass, gearing, and cadence determine how hard it feels to produce power.
+- Speed and distance are derivatives of rider power, cadence/gearing/trainer physics, wheel circumference or virtual gearing, slope, wind, and resistance terms.
+- Rider choice matters more: gearing and cadence become central controls rather than presentation.
+
+Mixed mode:
+
+- A ride can use the same terrain profile while switching control modes.
+- Switching modes should not alter canonical route distance/elevation/category.
+- Results and exports should record which control mode was active over time so later analysis can distinguish ERG-on sections from Manual/SIM sections.
+
 ## Control Modes
 
 ## Industry Reference: Terrain, ERG, and Manual Modes
 
 Current training apps split terrain difficulty into two broad control models.
 
-### ERG / Workout Control
+### ERG-On / Workout Control
 
 In ERG mode, terrain is not the trainer-control input. The app sends a target wattage and the trainer adjusts resistance to hold that wattage as cadence changes.
 
@@ -218,10 +245,10 @@ Observed patterns:
 
 Implication for gizzERG:
 
-- **ERG Terrain** should treat grade/elevation as presentation and scoring context.
+- **ERG-on Terrain** should treat grade/elevation as presentation, route stats, and export context.
 - Trainer commands remain target watts.
 - Difficulty and rider feel are primarily controlled by target-watt mapping, FTP scaling, workout profile intensity, cadence, fatigue, and music/video context.
-- Distance and elevation can still be useful in ERG mode, but they are derived stats and export context rather than the main thing driving rider experience.
+- Distance and elevation can still be useful in ERG-on mode, but they are model outputs rather than the mechanism directly changing trainer resistance.
 - Shifting in ERG Terrain should be UI/pacing flavor only until SIM mode exists.
 - Cadence can still vary meaningfully on big "climbs" because riders naturally change cadence under different target watts, fatigue, and perceived terrain. ERG does not make cadence irrelevant; it just prevents cadence/gearing from being the primary way difficulty is set.
 
@@ -256,6 +283,7 @@ Implication for gizzERG:
   - felt grade: scaled/clamped grade sent to the trainer for comfort and hardware limits.
 - Virtual shifting belongs naturally in SIM Terrain, not ERG Terrain.
 - Manual/SIM difficulty should consider FTP-aware accessibility: a route may be canonically steep while the felt grade, virtual gear range, or lowest gear can be adjusted so the rider is not forced below a sustainable cadence.
+- Wind should be kept out of the first implementation, but the physics model should leave room for headwind/tailwind/crosswind mechanics later.
 
 Good SIM Terrain difficulty knobs:
 
@@ -274,11 +302,11 @@ Implementation rule:
 
 Do not let comfort scaling corrupt the canonical route. If a song section maps to a 9% climb, keep that 9% in the route/profile and leaderboard version. A rider may choose 50% felt-grade scaling so the trainer feels like 4.5%, but route distance/elevation/category should remain tied to the canonical terrain version.
 
-## ERG Distance and Export Stats
+## ERG-On Distance and Export Stats
 
 Owner: **Codex / gizzERG (`concert-mvp`)** for client display; **Claude / sidecar** for durable recording/export.
 
-In ERG Terrain, distance and elevation should be treated carefully:
+In ERG-on Terrain, distance and elevation should be treated carefully:
 
 - They can make the ride feel more complete and legible.
 - They can provide useful completed-activity stats for Strava and other platforms.
@@ -378,8 +406,10 @@ Minimum model:
 - rider mass = configured rider weight;
 - bike mass = fixed default, later configurable;
 - grade comes from intensity curve;
-- speed comes from power against gravity, rolling resistance, and aerodynamic drag;
+- speed comes from power/cadence estimates against gravity, rolling resistance, and aerodynamic drag;
 - elevation gain accumulates only on positive grades.
+
+Do not overfit the first implementation to BPM alone. The first terrain generator can start from the song/profile chart, then let the tuning popout adjust grade scale, smoothing, floor/ceiling, and speed-model assumptions until the terrain feels plausible for real riding.
 
 Difficulty metrics:
 
