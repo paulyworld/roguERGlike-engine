@@ -11,6 +11,8 @@
 
 **gizzERG app stack convention:** `repos/concert-mvp` is now codenamed **gizzERG**. For the future polished app, prefer **SvelteKit + TypeScript + authored CSS/CSS modules**. Avoid defaulting to React or Tailwind; prior LLM coding experience suggests Tailwind/React can create hard-to-review UI churn, and gizzERG needs a crafted artistic interface rather than a generic dashboard.
 
+**Workflow convention:** Umbrella `INSTRUCTIONS.md` is canonical. Branch from `develop`, PR back to `develop`, use conventional commits, sign commits on public repos, update `HANDOFF.md`, and add a session log before ending substantial sessions.
+
 ## Where we are
 
 The engine `develop` branch contains:
@@ -52,13 +54,15 @@ See `docs/claude-sidecar-review-brief.md` for the sidecar implementation packet 
 
 ## What's next
 
-1. **Claude / sidecar:** ship the next protocol foundation. Review `docs/claude-sidecar-review-brief.md`; then implement protocol feature negotiation, annotation recording, Pattern B structured pause, distance/export groundwork, and later terrain/SIM support in the order agreed there.
-2. **Codex / gizzERG (`concert-mvp`):** add client UX around sidecar capabilities as they land: F2 annotations, post-ride export/upload controls, Terrain Mode prototype, local results, and UI-only shifting. When the app shell is refreshed, use SvelteKit + TypeScript + authored CSS/CSS modules unless a concrete reason overrides it.
-3. **Codex / engine:** add generic Godot bridge support only after sidecar schema lands. Engine should expose `pause_effort(reason, target_watts)` / `resume_effort()` and `effort_paused` / `effort_resumed` signals without depending on the deck-builder MVP branch.
-4. **Server owner later:** own authenticated leaderboards, group-ride rooms, public rankings, anti-cheat policy, and account/privacy surfaces once local ghosts and private results are validated.
-5. **Keep concert-mvp as the primary riding UX for now.** Concert can continue Pattern A for YouTube play/pause, then optionally adopt Pattern B for authored workout breaks or explicit structured pauses.
-6. **Keep `feat/mvp-playable-loop` as a validated side experiment.** Do not promote it by default; revisit only if the user explicitly chooses to return to the Godot/deck-builder MVP.
-7. **Card-system foundation** (`Effect: Resource` + `CombatContext: RefCounted`) remains useful engine work, but it is not the immediate riding-infrastructure priority.
+1. **Codex / engine docs:** merge this planning docs/README PR first so Claude and Codex are working from the same reference.
+2. **Codex + Claude:** reconcile annotation schema with Claude PR #12 before F2 implementation. Current shape to review: `{tag, note?, client_id?, client_time_s?, context?}`.
+3. **Claude / sidecar:** ship the next protocol foundation. Review `docs/claude-sidecar-review-brief.md`; then implement protocol feature negotiation, annotation recording, Pattern B structured pause, distance/export groundwork, and later terrain/SIM support in the order agreed there.
+4. **Codex / gizzERG (`concert-mvp`):** add client UX around sidecar capabilities as they land: F2 annotations, post-ride export/upload controls, Terrain Mode prototype with a dev/test tuning popout, local results, and UI-only shifting. When the app shell is refreshed, use SvelteKit + TypeScript + authored CSS/CSS modules unless a concrete reason overrides it.
+5. **Codex / engine:** add generic Godot bridge support only after sidecar schema lands. Engine should expose `pause_effort(reason, target_watts)` / `resume_effort()` and `effort_paused` / `effort_resumed` signals without depending on the deck-builder MVP branch.
+6. **Server owner later:** own authenticated leaderboards, group-ride rooms, public rankings, and account/privacy surfaces once local ghosts and private results are validated.
+7. **Keep concert-mvp as the primary riding UX for now.** Concert can continue Pattern A for YouTube play/pause, then optionally adopt Pattern B for authored workout breaks or explicit structured pauses.
+8. **Keep `feat/mvp-playable-loop` as a validated side experiment.** Do not promote it by default; revisit only if the user explicitly chooses to return to the Godot/deck-builder MVP.
+9. **Card-system foundation** (`Effect: Resource` + `CombatContext: RefCounted`) remains useful engine work, but it is not the immediate riding-infrastructure priority.
 
 ## Open threads
 

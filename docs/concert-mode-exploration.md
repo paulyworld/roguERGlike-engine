@@ -67,10 +67,13 @@ Inputs available now:
 First implementation:
 
 - Add a ride mode selector with existing mode(s) plus `Terrain`.
+- Add a dev/test tuning popout with sliders for terrain mapping parameters.
 - Convert profile intensity to `grade_percent` with smoothing and clamps.
 - Compute virtual speed from a simple deterministic model.
 - Accumulate virtual distance and positive elevation gain client-side.
 - Show current grade, distance, elevation gain, segment name/category, and W/kg.
+- Render a side-view terrain map: elevation gain/fall as the main profile, vertical color-shaded climb-rating bars, and a rider progress line tracing over the elevation topline.
+- Keep power/pacer data in a separate HUD so the terrain graphic can stay visual and readable.
 - Keep sending ERG target watts exactly as the current app does.
 
 Explicit deferrals:
@@ -97,6 +100,70 @@ speed_mps = physics_step(power_watts, grade_percent, effective_mass_kg)
 ```
 
 The first `physics_step` can be approximate. The key requirement is determinism for a given profile version and rider input.
+
+## Dev/Test Terrain Tuning Popout
+
+Owner: **Codex / gizzERG (`concert-mvp`)**
+
+During development and ride testing, include a non-production tuning surface that lets us adjust how video/audio/profile data maps into terrain.
+
+Initial controls:
+
+- grade gain / scale;
+- grade offset / baseline;
+- minimum grade;
+- maximum grade;
+- smoothing window in seconds;
+- downhill allowance on/off;
+- intensity floor/ceiling remap;
+- virtual bike mass;
+- rolling resistance;
+- aerodynamic drag scalar.
+
+Useful live outputs:
+
+- current raw intensity;
+- smoothed intensity;
+- computed grade;
+- virtual speed;
+- accumulated distance;
+- accumulated elevation gain;
+- current target watts;
+- current W/kg.
+
+Persistence:
+
+- Store tuning presets locally during development.
+- Do not treat slider values as final profile schema until a ride-tested preset feels good.
+- When promoted, save the chosen mapping as a versioned terrain profile so local results and future leaderboards can identify the exact route version.
+
+UX constraint:
+
+- The popout is a development/test tool. It can be visible in dev mode or behind an explicit toggle, but it should not define the final artistic gizzERG ride interface.
+
+## Initial Terrain Visualization
+
+Owner: **Codex / gizzERG (`concert-mvp`)**
+
+Target the proven cycling-app pattern:
+
+- side-view elevation chart showing the full track/segment terrain;
+- vertical shaded bars behind or within the chart that encode climb rating, with red reserved for the hardest sections;
+- a progress trace/marker that rides along the top line of the elevation profile;
+- separate HUD blocks for current power, cadence, HR, grade, W/kg, distance, elevation gain, and elapsed/remaining time;
+- optional pacer panel that shows delta versus personal best, ghost rider, or another rider's time.
+
+Visual intent:
+
+- The elevation map should be the emotional ride surface: it shows what is coming and how hard the current section is.
+- The HUD should be operational: current effort, pacing, and trainer state.
+- Do not overload the terrain chart with every metric; keep the map scannable at riding distance.
+
+First implementation detail:
+
+- Build this as a deterministic SVG or canvas component fed by the terrain module's sampled route points.
+- Use climb-rating color bands from easy/flat through red/hard climb.
+- Start with a single rider progress marker; add ghost/pacer overlays after local result replay exists.
 
 ## Control Modes
 
@@ -318,6 +385,7 @@ Recommended first coding PR in `repos/concert-mvp`:
 - Add pure terrain math module.
 - Add tests for grade mapping, smoothing, category scoring, and accumulation.
 - Add mode selector state for `terrain_erg`.
+- Add dev/test terrain tuning popout with sliders for mapping parameters.
 - Render read-only Terrain Mode metrics without changing existing trainer command behavior.
 
 This PR should not depend on sidecar changes. It gives Claude room to review and implement sidecar protocol work in parallel.

@@ -16,6 +16,7 @@ Additional planning notes:
 - `docs/claude-sidecar-review-brief.md` is the sidecar implementation packet for Claude review before coding.
 - `docs/concert-mode-exploration.md` covers Terrain Mode, shifting, local results, leaderboards, and group rides.
 - `docs/training-platform-export-research.md` covers FIT export, Strava upload, TrainingPeaks constraints, and other training platforms.
+- Umbrella `INSTRUCTIONS.md` is canonical for workflow: branch from `develop`, PR to `develop`, conventional commits, signed commits on public repos, update `HANDOFF.md`, and write a session log before ending a session.
 
 ## gizzERG App Stack Direction
 
@@ -190,18 +191,20 @@ Mobile/tablet remains strategically plausible, but not v1. The right near-term p
 
 The immediate sequence should be:
 
-1. **Claude / sidecar:** finish sidecar `--record` branch if not merged.
-2. **Claude / sidecar:** add protocol version / feature negotiation.
-3. **Claude / sidecar:** add semantic annotations and record them to JSONL.
-4. **Codex / gizzERG (`concert-mvp`):** add F2 annotation UX.
-5. **Codex / gizzERG (`concert-mvp`):** prototype ERG Terrain Mode as client-only terrain math and UI.
-6. **Codex + Claude:** use real ride logs + F2 annotations to tune workout/profile/terrain behavior.
-7. **Claude / sidecar:** implement Pattern B structured pause as core infrastructure.
-8. **Codex / gizzERG (`concert-mvp`):** add optional concert support for Pattern B where pauses are structured, not ordinary YouTube play/pause.
-9. **Claude / sidecar:** add FIT export groundwork for Strava/TrainingPeaks manual upload, then Strava direct upload.
-10. **Codex / gizzERG (`concert-mvp`):** add post-ride export/upload UI once sidecar export exists.
-11. **Codex / gizzERG (`concert-mvp`):** start SvelteKit + TypeScript + authored CSS migration once the protocol/logging loop is stable.
-12. **Codex + Claude:** begin Windows desktop packaging spike with bundled sidecar.
+0. **Codex / engine docs:** merge this planning README/docs PR, including the README repositioning and gizzERG stack decision.
+1. **Codex + Claude:** reconcile annotation schema with Claude's PR #12 counter-proposal before coding F2 against sidecar PR #22. Current preferred direction to review: `{tag, note?, client_id?, client_time_s?, context?}`; avoid including raw input labels such as `"F2"` in the sidecar contract.
+2. **Claude / sidecar:** finish or merge sidecar `--record` branch if not merged.
+3. **Claude / sidecar:** add protocol version / feature negotiation.
+4. **Claude / sidecar:** add semantic annotations and record them to JSONL after schema agreement.
+5. **Codex / gizzERG (`concert-mvp`):** add F2 annotation UX once sidecar annotation schema lands.
+6. **Codex / gizzERG (`concert-mvp`):** prototype ERG Terrain Mode as client-only terrain math and UI, including a dev/test tuning popout with sliders for video/audio-to-terrain parameters.
+7. **Codex + Claude:** use real ride logs + F2 annotations to tune workout/profile/terrain behavior.
+8. **Claude / sidecar:** implement Pattern B structured pause as core infrastructure.
+9. **Codex / gizzERG (`concert-mvp`):** add optional concert support for Pattern B where pauses are structured, not ordinary YouTube play/pause.
+10. **Claude / sidecar:** add FIT export groundwork for Strava/TrainingPeaks manual upload, then Strava direct upload.
+11. **Codex / gizzERG (`concert-mvp`):** add post-ride export/upload UI once sidecar export exists.
+12. **Codex / gizzERG (`concert-mvp`):** start SvelteKit + TypeScript + authored CSS migration once the protocol/logging loop is stable.
+13. **Codex + Claude:** begin Windows desktop packaging spike with bundled sidecar.
 
 ## Ownership Map
 
@@ -228,4 +231,4 @@ The immediate sequence should be:
 
 ## Next Session Entry Point
 
-> "Product direction: focus on gizzERG (`repos/concert-mvp`). Future app shell should be SvelteKit + TypeScript + authored CSS/CSS modules, not default React/Tailwind. Claude sidecar track should implement protocol version/feature negotiation, then semantic annotations tied into `--record` JSONL. gizzERG track should add F2 annotation UX that sends current playback/workout/telemetry context. Pattern B remains core sidecar infrastructure after/alongside annotations. Do not promote the Godot MVP or rewrite Python sidecar yet."
+> "Product direction: focus on gizzERG (`repos/concert-mvp`). Future app shell should be SvelteKit + TypeScript + authored CSS/CSS modules, not default React/Tailwind. First merge the planning docs/README PR. Then reconcile annotation schema with Claude PR #12's hybrid proposal `{tag, note?, client_id?, client_time_s?, context?}` before F2 work. Terrain Mode should start client-only and include a dev/test tuning popout with sliders for audio/video-to-terrain mapping. Pattern B remains core sidecar infrastructure after/alongside annotations. Do not promote the Godot MVP or rewrite Python sidecar yet."
