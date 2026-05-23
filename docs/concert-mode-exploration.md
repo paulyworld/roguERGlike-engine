@@ -54,6 +54,39 @@ Design rules:
 - Smoothing matters more than literal BPM. Sudden musical changes can create short pitches, but grade should not flicker every beat.
 - Difficulty should be reproducible from profile data plus rider settings, so leaderboards are meaningful.
 - Separate the terrain route from the trainer-control mode. The same route can later be experienced with ERG on, Manual/SIM, or mixed-mode toggling during a ride.
+- To start, route terrain is dictated by the song/profile and should be the same regardless of control mode.
+
+## Route Generation and Terrain Themes
+
+Owner: **Codex / gizzERG (`concert-mvp`)** for client modeling; later shared with sidecar/export when route profile protocol exists.
+
+Initial rule:
+
+- One song/profile-derived route is canonical for the ride.
+- ERG-on, Manual/SIM, and mixed mode use the same route geometry: distance, grade, elevation, segments, and category labels.
+- Control mode changes how the rider experiences the route, not what the route is.
+
+Future terrain themes:
+
+- Add a terrain-theme layer that modulates the same video/song inputs into different ride shapes.
+- Theme examples:
+  - `climbing`: biases intense sections toward climbs and sustained elevation gain.
+  - `rolling`: turns intensity waves into repeated rollers and short pitches.
+  - `flat`: keeps grade mostly low; intense sections become sprint intervals or wind/pace pressure rather than long climbs.
+  - `mixed`: preserves more of the raw song contour.
+- The theme should not discard the music/video intensity concept. It should reshape it into the desired ride type.
+
+Theme implementation idea:
+
+```text
+song_features + authored_overrides + terrain_theme -> route_profile
+```
+
+Where `route_profile` contains sampled distance, grade, elevation, segment labels, and metadata needed for results/export.
+
+Important constraint:
+
+- Once a route profile is generated and used for a result, it needs a stable `profile_version` / `route_version` so local results, ghosts, and future leaderboards compare like with like.
 
 ## Minimum Viable Terrain Mode
 
@@ -410,6 +443,51 @@ Minimum model:
 - elevation gain accumulates only on positive grades.
 
 Do not overfit the first implementation to BPM alone. The first terrain generator can start from the song/profile chart, then let the tuning popout adjust grade scale, smoothing, floor/ceiling, and speed-model assumptions until the terrain feels plausible for real riding.
+
+## Model Training and Manual Feedback Loop
+
+Owner: **Codex / gizzERG (`concert-mvp`)** for tooling; user supplies ride/video annotations; later analyzers may live in a shared tool or server repo.
+
+The song/video-to-power and song/video-to-terrain model will need manual feedback. Some current quirks are expected:
+
+- A mellow section that ends in a crescendo can trigger a sustained intensity section too early.
+- The right training response might be to wait until the next intense song or song part starts.
+- Raw musical feel and sports-science-backed training load may disagree.
+
+Build tools to collect and use these corrections:
+
+- F2/rider annotations during rides for subjective feel: too hard, too easy, bad sync, false intensity, missed intensity, cadence mismatch.
+- Post-ride timeline editor for correcting section boundaries, intensity starts, intensity ends, and terrain/power intent.
+- Ability to mark musical events: crescendo, drop, break, jam, chorus, riff, sprint cue, recovery cue.
+- Side-by-side overlays: audio/video-derived intensity, authored overrides, target watts, generated grade, rider power/cadence/HR, and rider annotations.
+- Exportable correction data so future model/rule changes can be trained against prior manual edits.
+
+Model/rule outputs should support multiple modes:
+
+- `raw_feel`: follows musical intensity more literally.
+- `training_balanced`: keeps the concert feel while respecting workout structure and fatigue management.
+- `climbing`: turns intensity into sustained climbs.
+- `rolling`: emphasizes repeated changes in grade.
+- `flat_sprints`: keeps grade low and maps intensity peaks to sprints or wind/pace pressure.
+
+Different modes can use different weights:
+
+```text
+output = weighted_mix(
+  audio_energy,
+  bpm,
+  section_boundaries,
+  crescendo_detection,
+  authored_overrides,
+  sports_science_constraints,
+  terrain_theme
+)
+```
+
+Near-term rule to test:
+
+- Do not let a short end-of-section crescendo automatically create a long sustained effort.
+- Require either duration, repeated intensity, a new section boundary, or authored confirmation before extending the high-intensity segment.
 
 Difficulty metrics:
 
