@@ -17,7 +17,7 @@ The user wants to scrub through the video and mark exact song-time changes, lull
 
 Strong answer: **neither, and both.** F2 is right for ride-time feel. A separate Excel is strictly worse than what we have. But scrubbing-based authoring is a *different job* than ride-time feedback and wants its own UX. And the underlying intensity model needs more than BPM regardless of what UX surfaces it.
 
-This proposal sketches three pieces that together address the root cause and the workflow.
+This proposal sketches three pieces that together address the root cause and the workflow. A fourth section at the end captures longer-term direction (crowdsourced authoring, model versioning, audio reconciliation) — **not on the near-term build path**, but flagged because near-term design choices need to leave the door open.
 
 ## Piece 1 — Audio features beyond BPM (signal side)
 
@@ -144,6 +144,55 @@ Crescendo handling (rolling-window confirmation + first-class events) lands insi
 - **Live feature computation in the browser (Piece 4)**: is this worth the Web Audio integration cost, or do we keep features as a property of the profile and not the moment? If the latter, F2's `context.audio_features` is just "look up the feature at `client_time_s` in the profile curve" — much simpler.
 - **Crescendo / drop / sprint as first-class profile events**: should these be a new array (`profile.events`) alongside the existing `cues`, or extension of the cue type? The doc's hint about "crescendo doesn't sustain" suggests they need different treatment than ordinary cues.
 - **Profile-version bump policy**: when the preprocessor algorithm changes (different weights, different feature set), do we auto-bump every profile's version on re-run, or version the algorithm and let profiles point at an algorithm version?
+
+## Long-term: crowdsourced authoring (not near-term — design hooks only)
+
+> **Status:** Future direction. None of this is on the near-term build path. Captured here so the near-term pieces above don't paint themselves into a corner.
+
+The natural extension of Pieces 1-4 is a community profile library. Riders author profiles for videos they care about, rate each other's accuracy, and the global model improves from the cross-rider training corpus. Default for anyone who doesn't want to author: the app's auto-generated curve with no community markers.
+
+### Variants tied to `profile_version`
+
+Same source video can support multiple variants without conflict:
+
+- **Vetted** — moderated / community-rated above some threshold. Stable, leaderboard-eligible.
+- **Community** — author-submitted, available, not vetted. Visible with a warning marker.
+- **Roll-your-own** — local fork of any of the above, edits stay private until the rider explicitly publishes.
+
+The existing `profile_version` field already discriminates these — no new schema. Leaderboards naturally separate by version because they already have to (for fairness).
+
+### Risks to design around now, even though we're not building the server yet
+
+These shape near-term decisions about *where* annotation data lives and what fields it carries:
+
+- **"Accurate" is partially subjective.** A Cat 1 rider and a Cat 5 rider can legitimately disagree about whether a section *should* be intense. Codex already split `raw_feel` / `training_balanced` / `terrain_*` modes for the same reason. Rating systems need to track *fit-for-mode*, not absolute correctness. Strava-style "this segment is highly rated" is the wrong shape; osu!-style "this beatmap is ranked at difficulty X within mode Y" is closer. **Implication for now:** annotation `context.mode` is already carried by F2; don't drop it from analysis tools.
+- **Don't train a profile's curve on its own annotations.** That's a feedback loop that collapses to local minima — loudest annotators steer the curve, the curve confirms their feel, the curve stops representing the music. Train on *cross-profile* patterns ("across all profiles, riders flag `too-hard` when our model says >0.7 but RMS is <0.4"). Within a single profile, save annotations and surface them to the next authoritative editor as edit suggestions. **Implication for now:** the trainer's first iteration (Piece 1 weight-tuning loop) should already be designed against cross-profile aggregates, not per-profile fitting.
+- **Normalize training signal by rider context.** `too-hard` from a rider at 1.8 W/kg is a different signal than from one at 4.5 W/kg. The `context.wkg` and `context.hardware_source` fields on F2 annotations are the levers; group by them before fitting weights. **Implication for now:** these fields are already in the recommended `context` shape — make sure gizzERG populates them at F2 press, not just optionally.
+- **Model versioning matters as much as profile versioning.** When the global intensity model updates, every profile's leaderboard implicitly changes. Riders pinning a known-good model version protects historical results. Same pattern as osu!'s scoring versions. **Implication for now:** the preprocessor (Piece 3) should write a `model_version` alongside the derived curve so we can tell which algorithm produced which curve.
+
+### Audio source reconciliation
+
+Many artists don't publish hi-def studio audio for live recordings, and a YouTube video may not match a Bandcamp release one-for-one (intro talk, jam variations, song order shifts). Solved DSP problem:
+
+- **Chromaprint / AcoustID** — perceptual audio fingerprinting library. Generates a hash that survives encoding/quality differences. Two recordings of the same underlying performance align to within ~50ms.
+- **Sources to reconcile against** — Archive.org etree (large structured archive of live recordings, well-suited to touring acts), Bandcamp (artist-controlled, higher fidelity, smaller coverage), setlist.fm (structured setlist metadata, sparsely populated but useful for title matching), YouTube (the canonical playback source for gizzERG).
+- **Resolver shape** (Codex already sketched this in `concert-product-roadmap.md`): pick a YouTube video → fingerprint audio segments → search candidate sources → propose alignment offset + per-track boundaries with confidence scores → rider confirms or corrects → save into the profile.
+- For live-recording reconciliation specifically, the segment-level (not whole-recording) fingerprinting handles the intro-speech / jam-variation drift that breaks whole-file alignment.
+
+### Why this is captured but not built
+
+- Server / accounts / moderation are deferred until local ghosts and private leaderboards have been validated (Codex's existing direction in `concert-mode-exploration.md`).
+- The audio reconciliation tool is meaningful work that pays back only when the second-and-Nth profiles exist. For the first few hand-authored profiles (King Gizzard Night 2 already in hand), manual offset entry is fine.
+- Crowdsourcing infrastructure (rating, moderation, anti-cheat) is a significant scope of its own and shouldn't constrain the near-term pieces.
+
+### What the near-term pieces should preserve so this future stays open
+
+| Near-term piece | Long-term hook to preserve |
+|---|---|
+| Combined intensity model (Piece 1) | Cross-profile-aggregate training, not per-profile fitting |
+| Preprocessor (Piece 3) | Write `model_version` alongside derived curve |
+| F2 schema additions (Piece 4) | Populate `context.wkg` + `context.hardware_source` + `context.mode` so future trainers can normalize signal |
+| Profile JSON | Keep `profile_version` strict; never silently mutate a profile in place |
 
 ## Non-goals
 
