@@ -19,6 +19,8 @@ Strong answer: **neither, and both.** F2 is right for ride-time feel. A separate
 
 This proposal sketches three pieces that together address the root cause and the workflow. A fourth section at the end captures longer-term direction (crowdsourced authoring, model versioning, audio reconciliation) — **not on the near-term build path**, but flagged because near-term design choices need to leave the door open.
 
+> **Vocabulary:** This proposal consumes `docs/vocabulary.md` as the canonical source for term definitions. Where this doc mentions intensity scale + schema bounds, F2 annotation tags, override types, override events, mode names, or any of the other terms in `vocabulary.md`, the canonical definition lives there. This file uses those terms; it doesn't redefine them.
+
 ## Piece 1 — Audio features beyond BPM (signal side)
 
 BPM is one number. Perceived intensity is many. The doc's crescendo problem is the canonical example: BPM is high, riff is dense, but it's a 5-second tail-end-of-section build that resolves into recovery. Treating that as a sustained block is exactly the model bug riders are flagging.
@@ -159,17 +161,23 @@ terrain_overrides: [
 ]
 ```
 
-Suggested override semantics:
+Override types and event names are defined canonically in
+`docs/vocabulary.md` Part 3 — Profile Authoring Vocabulary. In short:
+override types are `cap`, `floor`, `anchor`, `event`, `manual-override`;
+override events are `crescendo`, `drop`, `song-boundary`. See the vocab
+doc for use semantics and the editorial rule about adding new ones.
 
-- `cap`: derived intensity may vary but cannot exceed `max_intensity`.
-- `floor`: derived intensity may vary but cannot fall below `min_intensity`.
-- `anchor`: pull blended intensity toward an authored value with a local
-  `weight`.
-- `event: crescendo`: allow a short ramp, but do not sustain it unless a
-  boundary/hold rule confirms the next section.
-- `event: drop`: short punchy climb/sprint window.
-- `event: song-boundary`: reset smoothing / permit sharper intensity changes.
-- `manual-override`: hard set terrain intensity for a window.
+Rationale notes specific to this proposal (not in the vocab doc):
+
+- The "crescendo doesn't sustain" rule mentioned earlier is implemented
+  by giving `event: crescendo` a short ramp window and requiring a
+  boundary/hold rule to extend it — without that, a 5-second tail-end
+  build doesn't propagate into the next section.
+- `event: drop` is the canonical home for sprint windows. `intensity`
+  values above 1.0 are intentional here (per the intensity scale in
+  vocabulary.md Part 2, `[0, 2.0]` covers Z1 through Z7 neuromuscular
+  sprints); the schema accepts up to 2.0 and the trainer's
+  `--max-target-power` clamp handles the hardware ceiling.
 
 Initial implementation plan for Codex:
 
@@ -183,12 +191,15 @@ Initial implementation plan for Codex:
 
 ## Piece 4 — F2 schema additions (gizzERG-side, no protocol change)
 
-The `context` blob is already opaque pass-through to the sidecar (per the hybrid schema agreed on engine PR #12). Two fields would make F2 annotations directly trainable against the derived curve:
+F2 tag names (`too-hard`, `too-easy`, `bad-sync`, `false-intensity`,
+`missed-intensity`, etc.) and the recommended `context` shape are
+defined in `docs/vocabulary.md` Parts 1 and 2. This proposal adds two
+optional fields specific to the audio-feature pipeline:
 
-- `context.estimated_intensity` (float 0–1) — what the model thinks the intensity is at the moment of the keypress. Lets a `too-hard` annotation say "you thought it was 0.7, my body says lower."
+- `context.estimated_intensity` (float, range per the intensity scale in vocabulary.md Part 2) — what the model thinks the intensity is at the moment of the keypress. Lets a `too-hard` annotation say "you thought it was 0.7, my body says lower."
 - `context.audio_features` (object) — the live-computed feature values at the moment: `{loudness, centroid, flux, harmonic_ratio}`. Lets the trainer see *which feature misled the model*.
 
-No sidecar schema change needed — sidecar already treats `context` opaque. Recommended-shape doc in `event-schema.md` can be updated by Claude in passing when the audio pipeline ships, or by Codex directly via the gizzERG repo (the recommended shape is convention, not contract).
+No sidecar schema change needed — sidecar already treats `context` opaque. The two new fields should be added to the vocabulary.md Part 2 recommended-shape table when the audio pipeline lands (currently marked there as *planned*).
 
 ## Ownership and sequencing
 
