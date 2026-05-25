@@ -84,6 +84,19 @@ References:
 - TrainerRoad Power Levels — https://www.trainerroad.com/blog/power-zones-the-pioneers-best-kept-secret/
 - Coggan zones (canonical source) — Allen, Coggan, McGregor: *Training and Racing with a Power Meter* (3rd ed.)
 
+### Intensity tracks the music at this point in the timeline, not the song
+
+Load-bearing design principle. The intensity curve describes **the local musical content at sample time `t`**, not the song-as-a-whole that contains `t`. A song that's heavy overall may have a quiet jam in the middle that should map to recovery intensity, and that quiet jam should produce a low value in the curve.
+
+Practical consequences for model design + analysis:
+
+- **Sub-song temporal resolution matters.** `derived_intensity_curve.sample_step_s` should default to 1–5 seconds, not whole-song aggregates. Sections shorter than `sample_step_s` are by definition invisible to the model.
+- **Per-song averaging is the wrong granularity for evaluation.** Comparing "Song A averages 0.5, Song B averages 0.6" loses the information that matters — within-song dynamics. The right evaluation looks at intra-window range, contrast between consecutive 15–30 second windows, and whether the model captures known transitions (verse → chorus, breakdown → drop).
+- **A model that produces flat plateaus across continuously-loud sections has a model bug, not a calibration bug.** Mapping its empirical range to [0, 1] would just stretch the plateau. The fix is feature-set work (capturing within-loud-music dynamics: spectral contrast, centroid derivative, segment novelty) — not weight tuning.
+- **The F2 annotation training loop is the canonical ground truth.** Rider feedback (`too-hard`, `false-intensity`, `missed-intensity`) at moment-precision is what teaches the model which feature combinations correspond to subjective climb / sprint / recovery feel. The model's intensity curve should agree with rider annotations as the long-term success metric.
+
+Origin: surfaced during the 2026-05-25 chunked-extraction smoke against the King Gizzard `bnnIdWzGSYI` concert audio. The model showed Gila Monster's 4-minute polyrhythmic body as a flat plateau at intensity 0.57 — correctly identifying that the song is loud and dense, but missing the sub-section variation (verse riff vs chorus vs polyrhythmic peak) that a rider feels distinctly. See gizzERG PR #3 comments for the data.
+
 ### Annotation context fields (recommended convention)
 
 Sidecar treats the `context` blob on `annotate` commands as opaque pass-through. The recommended fields below let analyzers join ride annotations to profile/result data without each client guessing. Clients should populate what they have; sidecar persists verbatim.
