@@ -108,6 +108,79 @@ The browser app then consumes `profile.derived_intensity_curve` instead of compu
 - Re-running the builder when the algorithm improves regenerates curves for every profile in one batch
 - Trainer/optimizer can iterate on weights against the same dataset of features + F2 annotations
 
+## Piece 3b — Blended Terrain Model
+
+The terrain source should not stay binary forever. The current gizzERG UI now
+has `Authored cues` and `Derived intensity`; the next model should add
+`Blended`.
+
+The right mental model is layered:
+
+- **Derived intensity** is the dense signal from audio/video features. It is
+  best for terrain that responds to musical changes, especially manual shifting
+  mode.
+- **Authored cues** are human decisions about structure, intent, boundaries,
+  and exceptions. They should carry "this crescendo does not sustain," "song
+  break," "jam recovery," "drop," "sprint," and manual corrections.
+
+Do not simply average the two everywhere. Use the derived curve as the base
+signal, then apply authored events/windows as modifiers:
+
+```text
+terrain_intensity =
+  derived_intensity
+  modified by authored cue windows/events
+  constrained by terrain theme + smoothing rules
+```
+
+Recommended gizzERG UI controls:
+
+- `Terrain source`: `Authored cues`, `Derived intensity`, `Blended`.
+- `Blend`: 0.0 = pure authored, 1.0 = pure derived.
+- Default blend: approximately 0.65 derived / 0.35 authored.
+- `Sample step`: keep visible. Manual-shift terrain likely wants 1-5 second
+  sampling; smoother ERG terrain may tolerate 5-15 seconds.
+
+Recommended profile shape:
+
+```js
+derived_intensity_curve: {
+  model_version: "audio-features-v0.1",
+  sample_step_s: 2,
+  points: [
+    { t: 1234, intensity: 0.71, audio_features: {...} }
+  ]
+}
+
+terrain_overrides: [
+  { start_s: 2400, end_s: 2445, type: "cap", max_intensity: 0.45, reason: "song break" },
+  { start_s: 3180, end_s: 3192, type: "event", event: "drop", intensity: 1.05 },
+  { start_s: 4020, end_s: 4090, type: "anchor", intensity: 0.62, weight: 0.8 }
+]
+```
+
+Suggested override semantics:
+
+- `cap`: derived intensity may vary but cannot exceed `max_intensity`.
+- `floor`: derived intensity may vary but cannot fall below `min_intensity`.
+- `anchor`: pull blended intensity toward an authored value with a local
+  `weight`.
+- `event: crescendo`: allow a short ramp, but do not sustain it unless a
+  boundary/hold rule confirms the next section.
+- `event: drop`: short punchy climb/sprint window.
+- `event: song-boundary`: reset smoothing / permit sharper intensity changes.
+- `manual-override`: hard set terrain intensity for a window.
+
+Initial implementation plan for Codex:
+
+1. Add `Blended` to the terrain source selector.
+2. Add a `Blend` slider.
+3. Add `blendTerrainIntensityAt(time)` or equivalent in `src/terrain-model.js`.
+4. Keep tests for pure authored, pure derived, blended soft-anchor, cap, and
+   crescendo-not-sustained behavior.
+5. Keep sidecar out of this until route profiles are being sent for recorded
+   distance/elevation authority.
+
 ## Piece 4 — F2 schema additions (gizzERG-side, no protocol change)
 
 The `context` blob is already opaque pass-through to the sidecar (per the hybrid schema agreed on engine PR #12). Two fields would make F2 annotations directly trainable against the derived curve:
