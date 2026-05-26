@@ -25,7 +25,7 @@ This proposal sketches three pieces that together address the root cause and the
 
 BPM is one number. Perceived intensity is many. The doc's crescendo problem is the canonical example: BPM is high, riff is dense, but it's a 5-second tail-end-of-section build that resolves into recovery. Treating that as a sustained block is exactly the model bug riders are flagging.
 
-The accepted way out (used by every audio-driven rhythm/exercise app that doesn't feel dumb) is to combine 4-5 features instead of weighting BPM alone:
+The accepted way out is to combine local audio features instead of weighting BPM alone:
 
 | Feature | What it captures | Why it helps here |
 |---|---|---|
@@ -33,15 +33,23 @@ The accepted way out (used by every audio-driven rhythm/exercise app that doesn'
 | **Spectral centroid** | Where energy sits in the spectrum (bright vs dark) | Lead guitar + cymbals = high. Bass-only jam = low. Captures brightness/aggression independent of tempo. |
 | **Spectral flux / onset density** | How much the spectrum is changing; attacks per second | Distinguishes "fast tempo, only the kick is hitting" from "fast tempo, everything is going off." |
 | **HPSS ratio** (harmonic vs percussive) | Fraction of energy that's rhythmic vs melodic | Sustained-organ jam = harmonic-dominated, "interlude" feel. Drum-heavy chorus = percussive-dominated. |
+| **Spectral contrast** | Difference between tonal bands and noisy/distorted bands | Helps separate continuously loud sections that feel different: falsetto/vocal passages vs wall-of-guitars sections. |
+| **Spectral change** | Local derivative of spectral shape | Captures riff changes and verse -> chorus movement when loudness stays flat. |
 | **Section novelty / boundary detection** | Automatic "the song changes here" markers (librosa's laplacian segmentation, `msaf` library) | Cuts manual section-marking burden way down. Model proposes boundaries; rider confirms / corrects. |
 
 Combined intensity model (first cut, to be tuned via F2 feedback):
 
 ```
-intensity_t = w1·loudness_t  +  w2·spectral_centroid_t  +  w3·onset_density_t  +  w4·(1 − harmonic_ratio_t)
+intensity_t =
+  w1·loudness_t
+  + w2·spectral_centroid_t
+  + w3·onset_density_t
+  + w4·(1 − harmonic_ratio_t)
+  + w5·spectral_contrast_t
+  + w6·spectral_change_t
 ```
 
-Tune `w1..w4` from accumulated `too-hard` / `too-easy` / `false-intensity` / `missed-intensity` annotations.
+Tune `w1..w6` from accumulated `too-hard` / `too-easy` / `false-intensity` / `missed-intensity` annotations. Raw BPM stays out of this formula; it belongs in cadence guidance and display. Beat strength / onset density is the rhythmic intensity signal because it can vary inside a song.
 
 ### Crescendo fix specifically
 
@@ -197,7 +205,7 @@ defined in `docs/vocabulary.md` Parts 1 and 2. This proposal adds two
 optional fields specific to the audio-feature pipeline:
 
 - `context.estimated_intensity` (float, range per the intensity scale in vocabulary.md Part 2) — what the model thinks the intensity is at the moment of the keypress. Lets a `too-hard` annotation say "you thought it was 0.7, my body says lower."
-- `context.audio_features` (object) — the live-computed feature values at the moment: `{loudness, centroid, flux, harmonic_ratio}`. Lets the trainer see *which feature misled the model*.
+- `context.audio_features` (object) — the feature values at the moment: `{loudness, spectral_centroid, onset_density, harmonic_ratio, spectral_contrast, spectral_change}`. Lets the trainer see *which feature misled the model*.
 
 No sidecar schema change needed — sidecar already treats `context` opaque. The two new fields should be added to the vocabulary.md Part 2 recommended-shape table when the audio pipeline lands (currently marked there as *planned*).
 
@@ -280,7 +288,7 @@ Many artists don't publish hi-def studio audio for live recordings, and a YouTub
 
 ## Non-goals
 
-- Not proposing to retire BPM. BPM stays as one of the inputs — it's just no longer the only input. Specifically it's still useful for the cadence guidance (target cadence often half-times BPM), which is independent of the intensity model.
+- Not proposing to retire BPM. BPM stays useful for cadence guidance (target cadence often half-times BPM) and display, which are independent of the intensity model.
 - Not proposing a new sidecar protocol. The hybrid annotation schema already accommodates everything here.
 - Not proposing a real-time DAW-style editor. The scrub-mode editor is a YouTube player + marker panel, not Ableton.
 - Not proposing to displace authored manual overrides. The profile's authored intensity stays the canonical training signal where present; derived features fill in / refine where the rider hasn't authored.
@@ -289,7 +297,7 @@ Many artists don't publish hi-def studio audio for live recordings, and a YouTub
 
 | Today | Proposal |
 |---|---|
-| BPM-only intensity | 4-5 feature combined intensity, tuned by F2 feedback |
+| BPM-only intensity | Local audio-feature intensity, tuned by F2 feedback |
 | Manual section boundaries only | Boundary detector proposes, rider confirms |
 | F2 is the only feedback surface | F2 (mid-ride) + scrub editor (out-of-ride) |
 | Profile JSON has authored cues | Profile JSON also has derived curve + auto-boundaries + first-class events |

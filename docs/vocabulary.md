@@ -116,7 +116,7 @@ Sidecar treats the `context` blob on `annotate` commands as opaque pass-through.
 | `distance_m`, `elevation_gain_m` | Accumulated distance/elevation for the ride |
 | `hardware_source` | One of `trainer_power` / `power_meter` / `estimated_power` / `mock` |
 | `estimated_intensity` *(planned)* | Model's intensity at this moment — lets `too-hard` annotations train against the curve directly |
-| `audio_features` *(planned)* | Snapshot of live audio features (loudness, centroid, flux, harmonic_ratio) — same training-signal idea |
+| `audio_features` *(planned)* | Snapshot of audio features at this moment (loudness, spectral_centroid, onset_density, harmonic_ratio, spectral_contrast, spectral_change) — same training-signal idea |
 
 ### Mode names
 
